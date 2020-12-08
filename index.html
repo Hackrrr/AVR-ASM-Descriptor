@@ -1,0 +1,41 @@
+<!DOCTYPE HTML>
+<html lang="cs">
+<head>
+    <title>ASM AVR komentátor</title>
+	<meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="CSS/CSS.css" rel="stylesheet" type="text/css">
+    <script src="JS/FileSaver.js"></script>
+    <script src="JS/Functions.js"></script>
+	<script src="JS/Descriptor.js"></script>
+	<script src="JS/Script.js"></script>
+</head>
+<body onkeydown="keyboardHandle(event)" onpaste="paste(event)" ondragover="event.preventDefault();" ondrop="drop(event)">
+	<div id="title">ASM AVR komentátor</div>
+
+	<div class="row">
+		<div class="column">
+			<textarea id="input" autofocus placeholder="Sem vložte asm kód..."></textarea>
+		</div>
+		<div id="control" class="column">
+			<div class="button" onclick="makeItHappen()">
+				<img src="convert_icon.png">
+			</div>
+		</div>
+		<div class="column">
+			<textarea id="output" placeholder="Zde se zobrazí okomentovaný asm kód..."></textarea>
+		</div>
+	</div>
+	
+	<!--
+		Featury:
+			Zaimplementování Drag and Drop Web API - Lze "přetáhnout a pustit" ASM soubor a obsah souboru se automaticky okomenuje
+
+			Zkratky:
+				CTRL + Enter		Provedení procesu
+				CTRL + Mezerník		Zkopírování výsledku
+				CTRL + S			Uložení výsledku (pokud možno, uloží se pod názevem jako nahraný soubor)
+				CTRL + V			Vložení obsahu ze schránky do inputu (normálka, že? No ale teď se nemusí být ani ve focusu na textareu...)
+	-->
+</body>
+</html>
