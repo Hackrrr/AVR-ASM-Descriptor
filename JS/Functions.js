@@ -1,4 +1,4 @@
-﻿/*
+/*
 
 **********   JavaScript - module Functions.js   **********
 **********            Version: 2.3.2            **********

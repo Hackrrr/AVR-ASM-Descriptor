@@ -435,11 +435,7 @@ const instructionData = {
 
 
 
-const selected = {}; //Tak je to const, ale netuším, jestli to náhodou nemá (v tomto případě) nějakej drawback...
-//TODO: Cookie serialization/deserialization
-for (let instruction of Object.keys(instructionData)) { 
-    selected[instruction] = getRandom(0, instructionData[instruction].length - 1);
-}
+
 
 
 class Formater {
@@ -517,10 +513,7 @@ class Formater {
 }
 
 
-
-
-
-function addComments(code, formater = new Formater()) {
+function addComments(code, formater = new Formater(), selected = {}) {
 	// output = [ ... [řádka, komentář] ... ]
 	formater = formater ?? new Formater();
     let output = [];
@@ -531,21 +524,22 @@ function addComments(code, formater = new Formater()) {
 		line = formater.formatLine(splitted, code);
 		if (line == null) continue;
 		// splitted = splitLine(line, false); ??? Jakože pro generateComment() by to nemělo vadit, ale člověk nikdy neví :)
-		let comment = splitted[3] ? generateComment(splitted) : "";
+		let comment = splitted[3] ? generateComment(splitted, selected) : "";
 		output.push([line, comment]);
 	}
 	
     return formater.postFormatCode(formater.joinLines(output));
 }
 
-function generateComment(splittedLine) {
+function generateComment(splittedLine, selected) {
     let instruction = splittedLine[3], op = splittedLine[5] ? splitOp(splittedLine[5]) : "";
     if (!instructionData.hasOwnProperty(instruction))
         throw new Error("Neznámá instrukce '" + instruction + "'");
-    return getCommenter(instruction)(op, splittedLine);
+    return getCommenter(instruction, selected)(op, splittedLine);
 }
 
-function getCommenter(instruction) {
-	//TODO: .toLowerCase()?
-    return instructionData[instruction][selected[instruction]];
+function getCommenter(instruction, selected) {
+	instruction = instruction.toLowerCase();
+    return instructionData[instruction][selected[instruction] ?? 0];
 }
+

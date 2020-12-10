@@ -1,13 +1,26 @@
-let input, output, loadedFileName = "";
+let input, output, toastEl, loadedFileName = "", formater, selected;
+
+temp = getCookie("formater");
+formater = new Formater(temp == "" ? {} : JSON.parse(temp));
+temp = getCookie("selected");
+selected = temp == "" ? {} : JSON.parse(temp);
+delete temp;
+for (let instruction of Object.keys(instructionData)) {
+    if (!(instruction in selected)) {
+        selected[instruction] = getRandom(0, instructionData[instruction].length - 1);
+    }
+}
+
 window.onload = () => {
     input = document.getElementById("input");
     output = document.getElementById("output");
+    toastEl = document.getElementById("toast");
 }
 
 function makeItHappen() {
     let result;
     try {
-        result = addComments(input.value);
+        result = addComments(input.value, formater, selected);
     } catch (e) {
         if ("stack" in e)
             result = e.stack;
@@ -23,15 +36,23 @@ async function keyboardHandle(e) {
         if (e.keyCode == 13) {
             makeItHappen();
         }  else if (e.keyCode == 32) {
-            await navigator?.clipboard?.writeText(output.value);
+            let promise = navigator?.clipboard?.writeText(output.value);
+            if (promise == null) {
+                toast("Nekompatibilný prohlížeč - Nelze zkopírovat výsledek (Objekt 'navigator' neexistuje nebo neobsahuje 'clipboard')");
+                return;
+            }
+            await promise;
+            toast("Výsledek byl zkopírován");
         } else if (e.keyCode == 83) {
             let canSave = false;
             try {
                 canSave = !!new Blob;
-            } catch (e) {}
+            } catch {}
             if (canSave) {
                 e.preventDefault();
                 saveAs(new Blob([output.value], {type: "text/plain;charset=utf-8"}), loadedFileName);
+            } else {
+                toast("Nekompatibilný prohlížeč - Nelze uložit soubor (Třída Blob neexistuje)");
             }
         }
     }
@@ -46,6 +67,7 @@ function drop(e) { // Dropujeme do Tilted boyz POGGERS
         loadedFileName = file.name;
         input.value = x;
         input.readOnly = false;
+        toast(`Soubor '${file.name}' načten`);
         makeItHappen();
     });
 }
@@ -56,5 +78,16 @@ function paste(e) {
     input.focus();
 }
 
-//TODO: toast() a cally z keyboardHadnleru (možná i z makeItHappen)
-//TODO: Format settings
+function saveSettings() {
+    setCookie("formater", JSON.stringify(formater), 60);
+    setCookie("selected", JSON.stringify(selected), 60);
+    toast("Nastavení uloženo");
+}
+
+function toast(str) {
+    toastEl.innerHTML = str;
+    toastEl.style.opacity = 1;
+    setTimeout(() => {
+        toastEl.style.opacity = 0;
+    }, 1500);
+}
