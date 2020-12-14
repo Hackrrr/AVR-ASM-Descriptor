@@ -221,13 +221,37 @@ const instructionData = {
 	],
 	"mul": [
 		(op) => {
+			return `Vynásobí nezaporné nedesetiné hodnoty registrů ${op[0]} a ${op[1]} a výsledek uloží do páru registrů ${haveUpperCase(op[0])?"R1:R0":"r1:r0"}`;
+		},
+		(op) => {
+			return `Nezaporné nedesetiné hodnoty registrů ${op[0]} a ${op[1]} se spolu vynásobí a výsledek bude uložen do páru registrů ${haveUpperCase(op[0])?"R1:R0":"r1:r0"}`;
+		}
+	],
+	"muls": [
+		(op) => {
 			return `Vynásobí nedesetiné hodnoty registrů ${op[0]} a ${op[1]} a výsledek uloží do páru registrů ${haveUpperCase(op[0])?"R1:R0":"r1:r0"}`;
 		},
 		(op) => {
 			return `Nedesetiné hodnoty registrů ${op[0]} a ${op[1]} se spolu vynásobí a výsledek bude uložen do páru registrů ${haveUpperCase(op[0])?"R1:R0":"r1:r0"}`;
 		}
 	],
-	"muls": [
+	"mulsu": [
+		(op) => {
+			return `Vynásobí nedesetinou hodnotu registru ${op[0]} a nedesetinou nezápornou hodnotu registru ${op[1]} a výsledek uloží do páru registrů ${haveUpperCase(op[0])?"R1:R0":"r1:r0"}`;
+		},
+		(op) => {
+			return `Nedesetiná hodnota registru ${op[0]} a nedesetiná nezáporná hodnota registru ${op[1]} se spolu vynásobí a výsledek bude uložen do páru registrů ${haveUpperCase(op[0])?"R1:R0":"r1:r0"}`;
+		}
+	],
+	"fmul": [
+		(op) => {
+			return `Vynásobí desetiné nezáporné hodnoty registrů ${op[0]} a ${op[1]} a výsledek uloží do páru registrů ${haveUpperCase(op[0])?"R1:R0":"r1:r0"}`;
+		},
+		(op) => {
+			return `Desetiné nezáporné hodnoty registrů ${op[0]} a ${op[1]} se spolu vynásobí a výsledek bude uložen do páru registrů ${haveUpperCase(op[0])?"R1:R0":"r1:r0"}`;
+		}
+	],
+	"fmuls": [
 		(op) => {
 			return `Vynásobí desetiné hodnoty registrů ${op[0]} a ${op[1]} a výsledek uloží do páru registrů ${haveUpperCase(op[0])?"R1:R0":"r1:r0"}`;
 		},
@@ -235,36 +259,12 @@ const instructionData = {
 			return `Desetiné hodnoty registrů ${op[0]} a ${op[1]} se spolu vynásobí a výsledek bude uložen do páru registrů ${haveUpperCase(op[0])?"R1:R0":"r1:r0"}`;
 		}
 	],
-	"mulsu": [
-		(op) => {
-			return `Vynásobí desetinou hodnotu registru ${op[0]} a nedesetinou hodnotu registru ${op[1]} a výsledek uloží do páru registrů ${haveUpperCase(op[0])?"R1:R0":"r1:r0"}`;
-		},
-		(op) => {
-			return `Desetiná hodnota registru ${op[0]} a nedesetiná hodnota registru ${op[1]} se spolu vynásobí a výsledek bude uložen do páru registrů ${haveUpperCase(op[0])?"R1:R0":"r1:r0"}`;
-		}
-	],
-	"fmul": [
-		(op) => {
-			return `Vynásobí nedesetiné zlomkové hodnoty registrů ${op[0]} a ${op[1]} a výsledek uloží do páru registrů ${haveUpperCase(op[0])?"R1:R0":"r1:r0"}`;
-		},
-		(op) => {
-			return `Nedesetiné zlomkové hodnoty registrů ${op[0]} a ${op[1]} se spolu vynásobí a výsledek bude uložen do páru registrů ${haveUpperCase(op[0])?"R1:R0":"r1:r0"}`;
-		}
-	],
-	"fmuls": [
-		(op) => {
-			return `Vynásobí desetiné zlomkové hodnoty registrů ${op[0]} a ${op[1]} a výsledek uloží do páru registrů ${haveUpperCase(op[0])?"R1:R0":"r1:r0"}`;
-		},
-		(op) => {
-			return `Desetiné zlomkové hodnoty registrů ${op[0]} a ${op[1]} se spolu vynásobí a výsledek bude uložen do páru registrů ${haveUpperCase(op[0])?"R1:R0":"r1:r0"}`;
-		}
-	],
 	"fmulsu": [
 		(op) => {
-			return `Vynásobí desetinou zlomkovou hodnotu registru ${op[0]} a nedesetinou zlomkovou hodnotu registru ${op[1]} a výsledek uloží do páru registrů ${haveUpperCase(op[0])?"R1:R0":"r1:r0"}`;
+			return `Vynásobí desetinou hodnotu registru ${op[0]} a desetinou nezápornou hodnotu registru ${op[1]} a výsledek uloží do páru registrů ${haveUpperCase(op[0])?"R1:R0":"r1:r0"}`;
 		},
 		(op) => {
-			return `Desetiná zlomková hodnota registru ${op[0]} a nedesetiná zlomková hodnota registru ${op[1]} se spolu vynásobí a výsledek bude uložen do páru registrů ${haveUpperCase(op[0])?"R1:R0":"r1:r0"}`;
+			return `Desetiná hodnota registru ${op[0]} a desetiná nezáporná hodnota registru ${op[1]} se spolu vynásobí a výsledek bude uložen do páru registrů ${haveUpperCase(op[0])?"R1:R0":"r1:r0"}`;
 		}
     ],
 
