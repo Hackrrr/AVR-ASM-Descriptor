@@ -342,7 +342,7 @@ const instructionData = {
 			return `Načtení/zápis hodnoty '${op[1]}' do registru ${op[0]}`;
 		},
 		(op) => {
-			return `Hodnota '${op[1]}' se zpíše do registru ${op[0]}`;
+			return `Hodnota '${op[1]}' se zapíše do registru ${op[0]}`;
 		}
 	],
 	"ld": [
