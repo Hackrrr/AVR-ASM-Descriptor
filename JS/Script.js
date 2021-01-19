@@ -1,13 +1,13 @@
-let input, output, toastEl, loadedFileName = "", formater, selected;
+let input, output, toastEl, loadedFileName = "", formater, commentRules;
 
 temp = getCookie("formater");
 formater = new Formater(temp == "" ? {} : JSON.parse(temp));
-temp = getCookie("selected");
-selected = temp == "" ? {} : JSON.parse(temp);
+temp = getCookie("commentRules");
+commentRules = new CommentRules(temp == "" ? {} : JSON.parse(temp));
 delete temp;
 for (let instruction of Object.keys(instructionData)) {
-    if (!(instruction in selected)) {
-        selected[instruction] = getRandom(0, instructionData[instruction].length - 1);
+    if (!(instruction in commentRules.selectedCommenters)) {
+        commentRules.selectedCommenters[instruction] = getRandom(0, instructionData[instruction].length - 1);
     }
 }
 
@@ -20,7 +20,7 @@ window.onload = () => {
 function makeItHappen() {
     let result;
     try {
-        result = addComments(input.value, formater, selected);
+        result = commentCode(input.value, formater, commentRules);
     } catch (e) {
         if ("stack" in e)
             result = e.stack;
@@ -38,7 +38,7 @@ async function keyboardHandle(e) {
         }  else if (e.keyCode == 32) {
             let promise = navigator?.clipboard?.writeText(output.value);
             if (promise == null) {
-                toast("Nekompatibilný prohlížeč - Nelze zkopírovat výsledek (Objekt 'navigator' neexistuje nebo neobsahuje 'clipboard')");
+                toast("Nekompatibilný prohlížeč - Nelze zkopírovat výsledek (Objekt 'navigator' neexistuje nebo neobsahuje vlastnost 'clipboard')");
                 return;
             }
             await promise;
@@ -80,7 +80,7 @@ function paste(e) {
 
 function saveSettings() {
     setCookie("formater", JSON.stringify(formater), 60);
-    setCookie("selected", JSON.stringify(selected), 60);
+    setCookie("commentRules", JSON.stringify(commentRules), 60);
     toast("Nastavení uloženo");
 }
 

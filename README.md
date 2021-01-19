@@ -6,12 +6,12 @@ Primárně slouží k "automazizaci" plnění domácích úkolů, kdy bylo cíle
 Celý projekt je navíc psán s myšlenkou/cílem, aby to byl "jen" JS (`Descriptor.js`) - To znamená, že pokud se ti nelíbí současné UI/design nebo chceš zakomponovat tuhle věcičku do své aplikace, nemělo by to být (až tak) těžký - a pokud se tomu tak stane, tak budu rád :). 
 
 ## Jak tohle zprovozním?
-Projekt je webová aplikace, taže jen naklonuj/stáhni repo a otenři `index.html`.
+Projekt je webová aplikace, taže jen naklonuj/stáhni repo a otevři `index.html`.
 
 ## Co vše to umí?
 Jak jsem psal, tak jsem klasicky tento projekt přehnal - Původně to byl pouze a jenom jeden JS snippet, který běžel v "sandboxu" ve Chromu. Pak ale se to trochu rozrostlo a po několika přepisech se z toho stalo toto - a to nejhlavnější je to, že to má UI. Takže ... Co to umí?
 - CTRL + Enter      - Automatické zahájení okomentování
-- CTRL + Mezerník   - Zkopírování výsledku do schránky¨
+- CTRL + Mezerník   - Zkopírování výsledku do schránky
 - CTRL + V          - Jasně... Klasická featura... Ale při pokusu o vložení data přes "CTRL + V" nemusíte být ve fokusu na input
 - CTRL + S          - Uložení výsledku
 - Drag and Drop     - Lze přetáhnout `.asm` soubor (actually jakkýkoli soubor) na stránku a soubor se automaticky zpracuje

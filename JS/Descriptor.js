@@ -1,17 +1,17 @@
-const splitLine = (x, filter = true, groupsOnly = true) => {
+const splitLine = (x, groupsOnly = true) => {
 	/*
 	OLD:
 	//x = Array.from(x.trim().match(/^\s*(?:((?:\w|\.)+:?)(?:$|(?:\s+(.+?)\s*)))?(;.*)?$/) ?? []);
-    Groupy:
+	Groupy:
 		1.  instrukce
 		2.  operátory
 		3.  komentář
-    */
+	*/
 
 
 	x = Array.from(x.match(/^(?!\s*$)(\s*)(?:([a-zA-Z0-9_.]+:)(\s*))?(?:(?:(\.?\w+)(?:(?:\s*?$)|(\s+)))((?:(?:(?<!\\)"(?:(?:\\")|[^"])*?(?<!\\)")|(?:(?<!\\)'(?:(?:\\')|[^'])*?(?<!\\)')|(?:[^;]))+?)?)?(\s*)(;.*)?$/) ?? []);
-    if (groupsOnly) x.shift();
-	return filter ? x.filter((x) => x != undefined && x != null) : x;
+	if (groupsOnly) x.shift();
+	return x;
 	/*
 	^(?!\s*$)(\s*)(?:([a-zA-Z0-9_.]+:)(\s*))?(?:(?:(\.?\w+)(?:(?:\s*?$)|(\s+)))((?:(?:(?<!\\)"(?:(?:\\")|[^"])*?(?<!\\)")|(?:(?<!\\)'(?:(?:\\')|[^'])*?(?<!\\)')|(?:[^;]))+?)?)?(\s*)(;.*)?$
 
@@ -28,6 +28,8 @@ const splitLine = (x, filter = true, groupsOnly = true) => {
 		6.	operátory
 		7.	mezera operátory-komentář
 		8.	komentář (včetně trailing \s znaků)
+	
+	Pozn.: splitLine indexuje groupy od 0 (odstraňuje full match), takže splittedLine má číslo/index group "posunuté" o -1
 
 	Příklad:
  >  $1   $2    $3  $4  $5    $6    $7     $8
@@ -35,15 +37,15 @@ const splitLine = (x, filter = true, groupsOnly = true) => {
 	*/
 };
 const splitOp = (x) => {
-    return x.split(/,\s*/);
+	return x.split(/,\s*/);
 }
 const offsetR = (x, offset = 1) => {
-    return x.substr(0,1) + (Number(x.substr(1)) + offset);
+	return x.substr(0,1) + (Number(x.substr(1)) + offset);
 }
 const isLabelString = (x) => {
-    return x.match(/^[a-zA-Z]\w*/) !== null;
+	return x.match(/^[a-zA-Z]\w*/) !== null;
 };
-const isCommentLine = (line) => typeof line == "string" ? line.match(/\s*;.*/) !== null : !line[1] && !line[3] && !line[5] && line[7];
+const isFullLineComment = (line) => typeof line == "string" ? line.match(/\s*;.*/) !== null : !line[1] && !line[3] && !line[5] && line[7];
 
 /*
 splittedLine[0] &&
@@ -60,17 +62,17 @@ splittedLine[7];
 
 // (op array, splittedLine, code) => comment
 const instructionData = {
-    // Pseudo/Meta instrukce
-    ".org": [
-        (op) => {
-            return `Kód se od teď zapisuje od adresy/na adresu '${op[0]}'`;
+	// Pseudo/Meta instrukce
+	".org": [
+		(op) => {
+			return `Kód se od teď zapisuje od adresy/na adresu '${op[0]}'`;
 		},
 		(op) => {
-            return `Kód se od teď zapisuje do paměti na adresu '${op[0]}'`;
-        }
-    ],
+			return `Kód se od teď zapisuje do paměti na adresu '${op[0]}'`;
+		}
+	],
 
-    // Aritmetika, Logika
+	// Aritmetika, Logika
 	"add": [
 		(op) => {
 			return `Sečte registry ${op[0]} a ${op[1]} a výsledek uloží do registru ${op[0]}`;
@@ -90,15 +92,15 @@ const instructionData = {
 	"adiw": [
 		(op) => {
 			if (op[0].match(/^[x-z]$/i))
-                return `Přidá hodnotu ${op[1]} k hodnotě registru ${op[0]} a výsledek uloží do tohoto registru`;
-            else
-                return `Přidá hodnotu ${op[1]} k hodnotě páru registrů ${offsetR(op[0])}:${op[0]} a výsledek uloží do tohoto páru registrů`;
+				return `Přidá hodnotu ${op[1]} k hodnotě registru ${op[0]} a výsledek uloží do tohoto registru`;
+			else
+				return `Přidá hodnotu ${op[1]} k hodnotě páru registrů ${offsetR(op[0])}:${op[0]} a výsledek uloží do tohoto páru registrů`;
 		},
 		(op) => {
 			if (op[0].match(/^[x-z]$/i))
-                return `K registru ${op[0]} se přičte hodnota ${op[1]} a výsledek bude uložen do tohoto registru`;
-            else
-                return `K páru registrů ${offsetR(op[0])}:${op[0]} se přičte hodnota ${op[1]} a výsledek bude uložen do tohoto páru registrů`;
+				return `K registru ${op[0]} se přičte hodnota ${op[1]} a výsledek bude uložen do tohoto registru`;
+			else
+				return `K páru registrů ${offsetR(op[0])}:${op[0]} se přičte hodnota ${op[1]} a výsledek bude uložen do tohoto páru registrů`;
 		}
 	],
 	"sub": [
@@ -128,73 +130,73 @@ const instructionData = {
 	"sbiw": [
 		(op) => {
 			if (op[0].match(/^[x-z]$/i))
-                return `Odečte hodnotu ${op[1]} od hodnoty registru ${op[0]} a výsledek uloží do tohoto registru`;
-            else
-                return `Odečte hodnotu ${op[1]} od hodnoty páru registrů ${offsetR(op[0])}:${op[0]} a výsledek uloží do tohoto páru registrů`;
+				return `Odečte hodnotu ${op[1]} od hodnoty registru ${op[0]} a výsledek uloží do tohoto registru`;
+			else
+				return `Odečte hodnotu ${op[1]} od hodnoty páru registrů ${offsetR(op[0])}:${op[0]} a výsledek uloží do tohoto páru registrů`;
 		},
 		(op) => {
 			if (op[0].match(/^[x-z]$/i))
-                return `Od registru ${op[0]} se odečte hodnota ${op[1]} a výsledek bude uložen do tohoto registru`;
-            else
-                return `Od páru registrů ${offsetR(op[0])}:${op[0]} se odečte hodnota ${op[1]} a výsledek bude uložen do tohoto páru registrů`;
+				return `Od registru ${op[0]} se odečte hodnota ${op[1]} a výsledek bude uložen do tohoto registru`;
+			else
+				return `Od páru registrů ${offsetR(op[0])}:${op[0]} se odečte hodnota ${op[1]} a výsledek bude uložen do tohoto páru registrů`;
 		}
 	],
 	"and": [
-        (op) => {
-            return `Provede logickou operaci AND s registry ${op[0]} a ${op[1]} a výsledek uloží do registru ${op[0]}`;
-        },
 		(op) => {
-            return `Hodnoty registrů ${op[0]} a ${op[1]} spolu provedou AND a výsledek buden uložen do registru ${op[0]}`;
+			return `Provede logickou operaci AND s registry ${op[0]} a ${op[1]} a výsledek uloží do registru ${op[0]}`;
+		},
+		(op) => {
+			return `Hodnoty registrů ${op[0]} a ${op[1]} spolu provedou AND a výsledek buden uložen do registru ${op[0]}`;
 		}
 	],
 	"andi": [
-        (op) => {
-            return `Provede logickou operaci AND s registrem ${op[0]} a hodnoutou '${op[1]}' a výsledek uloží do registru ${op[0]}`;
-        },
 		(op) => {
-            return `Hodnota registru ${op[0]} a hodnota '${op[1]}' spolu provedou AND a výsledek buden uložen do registru ${op[0]}`;
+			return `Provede logickou operaci AND s registrem ${op[0]} a hodnoutou '${op[1]}' a výsledek uloží do registru ${op[0]}`;
+		},
+		(op) => {
+			return `Hodnota registru ${op[0]} a hodnota '${op[1]}' spolu provedou AND a výsledek buden uložen do registru ${op[0]}`;
 		}
 	],
 	"or": [
-        (op) => {
-            return `Provede logickou operaci OR s registry ${op[0]} a ${op[1]} a výsledek uloží do registru ${op[0]}`;
-        },
 		(op) => {
-            return `Hodnoty registrů ${op[0]} a ${op[1]} spolu provedou OR a výsledek buden uložen do registru ${op[0]}`;
+			return `Provede logickou operaci OR s registry ${op[0]} a ${op[1]} a výsledek uloží do registru ${op[0]}`;
+		},
+		(op) => {
+			return `Hodnoty registrů ${op[0]} a ${op[1]} spolu provedou OR a výsledek buden uložen do registru ${op[0]}`;
 		}
 	],
 	"ori": [
-        (op) => {
-            return `Provede logickou operaci OR s registrem ${op[0]} a hodnoutou '${op[1]}' a výsledek uloží do registru ${op[0]}`;
-        },
 		(op) => {
-            return `Hodnota registru ${op[0]} a hodnota '${op[1]}' spolu provedou OR a výsledek buden uložen do registru ${op[0]}`;
-		}
-    ],
-	"eor": [
-        (op) => {
-            return `Provede logickou operaci XOR (Exkluzivní OR) s registry ${op[0]} a ${op[1]} a výsledek uloží do registru ${op[0]}`;
+			return `Provede logickou operaci OR s registrem ${op[0]} a hodnoutou '${op[1]}' a výsledek uloží do registru ${op[0]}`;
 		},
 		(op) => {
-            return `Hodnoty registrů ${op[0]} a ${op[1]} spolu provedou XOR a výsledek buden uložen do registru ${op[0]}`;
+			return `Hodnota registru ${op[0]} a hodnota '${op[1]}' spolu provedou OR a výsledek buden uložen do registru ${op[0]}`;
+		}
+	],
+	"eor": [
+		(op) => {
+			return `Provede logickou operaci XOR (Exkluzivní OR) s registry ${op[0]} a ${op[1]} a výsledek uloží do registru ${op[0]}`;
+		},
+		(op) => {
+			return `Hodnoty registrů ${op[0]} a ${op[1]} spolu provedou XOR a výsledek buden uložen do registru ${op[0]}`;
 		}
 	],
 	"sbr": [
-        (op) => {
-            return `Nastaví ${op[1]}. bit v registru ${op[0]} na 1`;
+		(op) => {
+			return `Nastaví ${op[1]}. bit v registru ${op[0]} na 1`;
 		},
 		(op) => {
-            return `Registr ${op[0]} nastaví ${op[1]}. bit na 1`;
-        }
+			return `Registr ${op[0]} nastaví ${op[1]}. bit na 1`;
+		}
 	],
 	"cbr": [
-        (op) => {
-            return `Nastaví ${op[1]}. bit v registru ${op[0]} na 0`;
+		(op) => {
+			return `Nastaví ${op[1]}. bit v registru ${op[0]} na 0`;
 		},
 		(op) => {
-            return `Registr ${op[0]} nastaví ${op[1]}. bit na 0`;
-        }
-    ],
+			return `Registr ${op[0]} nastaví ${op[1]}. bit na 0`;
+		}
+	],
 	"dec": [
 		(op) => {
 			return `Dekrementace registru ${op[0]} o 1`;
@@ -204,19 +206,19 @@ const instructionData = {
 		}
 	],
 	"clr": [
-        (op) => {
-            return `Nastaví všechny bity registru ${op[0]} na 0`;
-        },
 		(op) => {
-            return `Registr ${op[0]} se vynuluje`;
+			return `Nastaví všechny bity registru ${op[0]} na 0`;
+		},
+		(op) => {
+			return `Registr ${op[0]} se vynuluje`;
 		}
 	],
 	"ser": [
-        (op) => {
-            return `Nastaví všechny bity registru ${op[0]} na 1`;
+		(op) => {
+			return `Nastaví všechny bity registru ${op[0]} na 1`;
 		},
 		(op) => {
-            return `Registr ${op[0]} se nastaví na maxiální hodnotu`;
+			return `Registr ${op[0]} se nastaví na maxiální hodnotu`;
 		}
 	],
 	"mul": [
@@ -266,9 +268,9 @@ const instructionData = {
 		(op) => {
 			return `Desetiná hodnota registru ${op[0]} a desetiná nezáporná hodnota registru ${op[1]} se spolu vynásobí a výsledek bude uložen do páru registrů ${haveUpperCase(op[0])?"R1:R0":"r1:r0"}`;
 		}
-    ],
+	],
 
-    // Flow/Větvení
+	// Flow/Větvení
 	"rjmp": [
 		(op) => {
 			return isLabelString(op[0]) ? `(Relativní) skok na návěstí "${op[0]}"` : `Relativní skok o ${op[0]}`;
@@ -288,47 +290,47 @@ const instructionData = {
 	
 	// Bitwise
 	"lsl": [
-        (op) => {
-            return `Posune bity v registru ${op[0]} doleva (původní MSB bude ztracen)`;
-        },
 		(op) => {
-            return `V registru ${op[0]} se posunou bity doleva`;
-        }
+			return `Posune bity v registru ${op[0]} doleva (původní MSB bude ztracen)`;
+		},
+		(op) => {
+			return `V registru ${op[0]} se posunou bity doleva`;
+		}
 	],
 	"lsr": [
-        (op) => {
-            return `Posune bity v registru ${op[0]} doprava (původní LSB bude ztracen)`;
+		(op) => {
+			return `Posune bity v registru ${op[0]} doprava (původní LSB bude ztracen)`;
 		},
 		(op) => {
-            return `V registru ${op[0]} se posunou bity doprava`;
-        }
+			return `V registru ${op[0]} se posunou bity doprava`;
+		}
 	],
 	"rol": [
-        (op) => {
-            return `Posune bity v registru ${op[0]} doleva přes Carry (půsodní MSB se stane současním LSB)`;
-        },
 		(op) => {
-            return `V registru ${op[0]} se posunou bity doleva přes Carry`;
-        }
+			return `Posune bity v registru ${op[0]} doleva přes Carry (půsodní MSB se stane současním LSB)`;
+		},
+		(op) => {
+			return `V registru ${op[0]} se posunou bity doleva přes Carry`;
+		}
 	],
 	"ror": [
-        (op) => {
-            return `Posune bity v registru ${op[0]} doprava přes Carry (půsodní LSB se stane současním MSB)`;
+		(op) => {
+			return `Posune bity v registru ${op[0]} doprava přes Carry (půsodní LSB se stane současním MSB)`;
 		},
 		(op) => {
-            return `V registru ${op[0]} se posunou bity doprava přes Carry`;
-        }
+			return `V registru ${op[0]} se posunou bity doprava přes Carry`;
+		}
 	],
 	"swap": [
-        (op) => {
-            return `V registru ${op[0]} prohodí nibbly/půlbajty`;
+		(op) => {
+			return `V registru ${op[0]} prohodí nibbly/půlbajty`;
 		},
 		(op) => {
-            return `Prohození nibblů/půlbajtů v registru ${op[0]}`;
-        }
+			return `Prohození nibblů/půlbajtů v registru ${op[0]}`;
+		}
 	],
-    
-    // Přesun
+	
+	// Přesun
 	"mov": [
 		(op) => {
 			return `Přestunutí/Zkopírování hodnoty registru '${op[1]}' do registru ${op[0]}`;
@@ -348,35 +350,35 @@ const instructionData = {
 	"ld": [
 		(op) => {
 			let r = op[1].match(/\w/)[0];
-            if (op[1].length == 2) {
-                if (op[1][0] == "-") return `Dekrementace registru ${r} + Načtení/zápis hodnoty z paměti na adrese, která je uložena v registru ${r} do registru ${op[0]}`;
-                else return `Načtení/zápis hodnoty z paměti na adrese, která je uložena v registru ${r} do registru ${op[0]} + Inkrementace registru ${r}`;
-            } else {
-                return `Načtení/zápis hodnoty z paměti na adrese, která je uložena v registru ${r} do registru ${op[0]}`;    
-            }
+			if (op[1].length == 2) {
+				if (op[1][0] == "-") return `Dekrementace registru ${r} + Načtení/zápis hodnoty z paměti na adrese, která je uložena v registru ${r} do registru ${op[0]}`;
+				else return `Načtení/zápis hodnoty z paměti na adrese, která je uložena v registru ${r} do registru ${op[0]} + Inkrementace registru ${r}`;
+			} else {
+				return `Načtení/zápis hodnoty z paměti na adrese, která je uložena v registru ${r} do registru ${op[0]}`;    
+			}
 		},
 		(op) => {
 			let r = op[1].match(/\w/)[0];
-            if (op[1].length == 2) {
-                if (op[1][0] == "-") return `Od registru ${r} se odečte 1 a z paměti na adrese rovné hodnotě registru ${r} se zapíše hodnota do registru ${op[0]}`;
-                else return `Z paměti na adrese rovné hodnotě registru ${r} se zapíše hodnota do registru ${op[0]} a k registru ${r} se přičte 1`;
-            } else {
-                return `Z paměti na adrese rovné hodnotě registru ${r} se zapíše hodnota do registru ${op[0]}`;    
-            }
+			if (op[1].length == 2) {
+				if (op[1][0] == "-") return `Od registru ${r} se odečte 1 a z paměti na adrese rovné hodnotě registru ${r} se zapíše hodnota do registru ${op[0]}`;
+				else return `Z paměti na adrese rovné hodnotě registru ${r} se zapíše hodnota do registru ${op[0]} a k registru ${r} se přičte 1`;
+			} else {
+				return `Z paměti na adrese rovné hodnotě registru ${r} se zapíše hodnota do registru ${op[0]}`;    
+			}
 		}
 	],
 	"ldd": [
 		(op) => {
 			let r = op[1][0];
-            let z = op[1][1];
-            let v = op[1].substr(2);
-            return `Načtení/zápis hodnoty z paměti na adrese, která je rovna hodnotě v registru ${r} ${z} ${v} do registru ${op[0]}`;
+			let z = op[1][1];
+			let v = op[1].substr(2);
+			return `Načtení/zápis hodnoty z paměti na adrese, která je rovna hodnotě v registru ${r} ${z} ${v} do registru ${op[0]}`;
 		},
 		(op) => {
 			let r = op[1][0];
-            let z = op[1][1];
-            let v = op[1].substr(2);
-            return `Z paměti na adrese rovné hodnotě v registru ${r} ${z} ${v} se zapíše hodnota do registru ${op[0]}`;
+			let z = op[1][1];
+			let v = op[1].substr(2);
+			return `Z paměti na adrese rovné hodnotě v registru ${r} ${z} ${v} se zapíše hodnota do registru ${op[0]}`;
 		}
 	],
 	"lds": [
@@ -396,23 +398,23 @@ const instructionData = {
 		}
 	],
 	"in": [
-        (op) => {
-            return `Načtení hodnoty z portu ${op[1]} do registru ${op[0]}`;
+		(op) => {
+			return `Načtení hodnoty z portu ${op[1]} do registru ${op[0]}`;
 		},
 		(op) => {
-            return `Ze vstupního portu ${op[0]} se zapíše hodnota do registru ${op[1]}`;
-        }
+			return `Ze vstupního portu ${op[0]} se zapíše hodnota do registru ${op[1]}`;
+		}
 	],
 	"out": [
-        (op) => {
-            return `Načtení hodnoty z registru ${op[1]} na port ${op[0]}`;
+		(op) => {
+			return `Načtení hodnoty z registru ${op[1]} na port ${op[0]}`;
 		},
 		(op) => {
-            return `Z registru ${op[1]} se zapíše hodnota na výstupní port ${op[0]}`;
-        }
-    ],
-    
-    // Ostatní
+			return `Z registru ${op[1]} se zapíše hodnota na výstupní port ${op[0]}`;
+		}
+	],
+	
+	// Ostatní
 	"nop": [
 		() => {
 			return `"Nulová instrukce" - Nic se nevykoná`;
@@ -420,27 +422,22 @@ const instructionData = {
 		() => {
 			return `Prázdná instrukce - Nic se neprovede`;
 		}
-    ],
+	],
 
 
 
-    /*
-    "": [
-        (op, splittedLine) => {
-            return ``;
-        }
-    ],
-    */
+	/*
+	"": [
+		(op, splittedLine) => {
+			return ``;
+		}
+	],
+	*/
 };
-
-
-
-
-
 
 class Formater {
 	removeLineComments			= true;			// => Odstraní tento komentář:	mov R16, R1 ;Komentář s instrukcí
-	removeCommentLines			= false;		// => Odstraní tento komentář:	;Samostatný komentář
+	removeFullLineComments		= false;		// => Odstraní tento komentář:	;Samostatný komentář
 
 	alignAddedComments			= true;			// Padding přidaných komentářů
 	commentIdent				= "\t";			// Čím spojit původní (/formátovanou) řádku a přidaný komentář?
@@ -453,23 +450,22 @@ class Formater {
 
 	removeEmptyLines			= false;		// Odstranit prázdné řádky? (řádka obsahující pouze mezery a taby je také prázdná)
 	removeEmptyLinesFromStart	= true;			// Odstranit prázdné řádky ze začátku? (řádka obsahující pouze mezery a taby je také prázdná)
-	removeEmptyLinesFromEnd		= true;			// Odstranit prázdné řádky t konce? (řádka obsahující pouze mezery a taby je také prázdná)
+	removeEmptyLinesFromEnd		= true;			// Odstranit prázdné řádky z konce? (řádka obsahující pouze mezery a taby je také prázdná)
 
 	// Systém zatím nemá kapatibilitu toto provést
-	//separateLabels				= true;			// Přesune instkuce, které jsou na stejném řádku jako label, na nový (další) řádek
+	// TODO: Umožnit návrat arraye
+	//separateLabels				= true;		// Přesune instkuce, které jsou na stejném řádku jako label, na nový (další) řádek
 
 	constructor(params = {}) {
 		Object.assign(this, params ?? {});
 	}
 
-	preFormatCode(code) {
-		return code;
-	}
-	formatLine(splittedLine, code) {
+
+	formatLine(splittedLine) {
 		if (this.removeEmptyLines && !splittedLine.some((x) => x !== undefined && x !== null && x.trim() !== "")) return null;
-		if (this.removeCommentLines && isCommentLine(splittedLine)) return null;
-		if (this.removeLineComments && !isCommentLine(splittedLine)) splittedLine.splice(7);
-		if (this.replaceLineIdent && !isCommentLine(splittedLine) && splittedLine[0]) splittedLine[0] = this.identReplacement; // => Skip comments + labels
+		if (this.removeFullLineComments && isFullLineComment(splittedLine)) return null;
+		if (this.removeLineComments && !isFullLineComment(splittedLine)) splittedLine.splice(7);
+		if (this.replaceLineIdent && !isFullLineComment(splittedLine) && splittedLine[0]) splittedLine[0] = this.identReplacement; // => Skip comments + labels
 		if (this.beautifyLine) {
 			if (splittedLine[1]) {
 				splittedLine[0] = "";
@@ -480,66 +476,128 @@ class Formater {
 				splittedLine[5] = splitOp(splittedLine[5]).join(", ");
 			}
 		}
-		return this.trimTrailing ? splittedLine.join("").trimEnd() : splittedLine.join("");
+
+		return splittedLine;
 	}
-	// lines = [ ... , [line, comment], ... ]
-	joinLines(lines) {
-		// Jo, jasně... Tohle loopování se může optimalizovat... Ale kdo se ptal? PogO
-		// No... Možná se někdy k tomu někdo dostane... :)
-		lines = lines.map((x) => {
-			return x.filter((x) => {
-				return x !== undefined && x !== null && x !== "";
-			});
-		});
-		while (this.removeEmptyLinesFromEnd && lines.length != 0 && lines[lines.length - 1].length == 0)
-		lines.pop();
-		while (this.removeEmptyLinesFromStart && lines.length != 0 && lines[0].length == 0)
-		lines.shift();
-		
-		if (this.alignAddedComments) {
-			let maxLength = 0;
-			lines.forEach(x => maxLength = x[1] ? Math.max(maxLength, x[0]?.length ?? 0) : maxLength);
-			lines = lines.map(x => {
-				if (x[1]) x[0] = x[0].padEnd(maxLength);
-				return x;
-			});
+	buildLine(lineData) {
+		return this.trimTrailing ? lineData["parsed"].join("").trimEnd() : lineData["parsed"].join("");
+	}
+	buildCode(lineDataArray) {
+		// removeEmptyLinesFromEnd + removeEmptyLinesFromStart
+		if (lineDataArray.length != 0) {
+			if (this.removeEmptyLinesFromEnd) {
+				while (lineDataArray[lineDataArray.length - 1]["buildedLine"].length == 0)
+					lineDataArray.pop();
+			}
+			if (this.removeEmptyLinesFromStart) {
+				while (lineDataArray[0]["buildedLine"].length == 0)
+					lineDataArray.shift();
+			}
 		}
 
-		return lines.map((x) => x.join(this.commentIdent + "; ")).join("\n");
+		// alignAddedComments
+		if (this.alignAddedComments) {
+			let maxLength = 0;
+			for (let lineData of lineDataArray)
+				if (lineData["generatedComment"])
+					maxLength = Math.max(maxLength, lineData["buildedLine"].length);
+			for (let lineData of lineDataArray)
+				if (lineData["generatedComment"])
+					lineData["buildedLine"] = lineData["buildedLine"].padEnd(maxLength);
+		}
+			
+		return lineDataArray.map(x => {
+			// Pokud nemáme komentář, necháme pouze řádku
+			if (x["generatedComment"] == null || x["generatedComment"].length == 0)
+				return x["buildedLine"];
+			// Pokud máme jen komentář, nech jen komentář (i když tahle situace by nastat nikdy neměla)
+			if (x["buildedLine"].length == 0)
+				return "; " + x["generatedComment"];
+			// Jinak posjíme řádku a komentář
+			return x["buildedLine"] + this.commentIdent + "; " + x["generatedComment"];
+		}).join("\n");
 	}
-	postFormatCode(code) {
-		return code;
+}
+class CommentRules {
+	selectedCommenters = {};
+	allowNormalComments = true;
+	allowInteligentComments = true;
+	constructor(params = {}) {
+		Object.assign(this, params ?? {});
 	}
 }
 
-
-function addComments(code, formater = new Formater(), selected = {}) {
-	// output = [ ... [řádka, komentář] ... ]
+function parseCode(code) {
+	let parsed = [];
+	for (let line of code.split("\n"))
+		parsed.push(splitLine(line));
+	return parsed;
+}
+function commentCode(code, formatter = new Formater(), commentRules = new CommentRules()) {
 	formater = formater ?? new Formater();
-    let output = [];
-	code = formater.preFormatCode(code);
+	commentRules = commentRules ?? new CommentRules();
+	let parsed = parseCode(code);
 
-    for (let line of code.split("\n")) {
-		let splitted = splitLine(line, false);
-		line = formater.formatLine(splitted, code);
-		if (line == null) continue;
-		// splitted = splitLine(line, false); ??? Jakože pro generateComment() by to nemělo vadit, ale člověk nikdy neví :)
-		let comment = splitted[3] ? generateComment(splitted, selected) : "";
-		output.push([line, comment]);
+	/*
+	parsed = [
+		...
+		{
+			"processed": bool			// Indikuje, zda již byl vytvořen komentář (jinak řečeno - Je tato řádka "uzamčená"?)
+			"parsed": [ splittedLine ]	// Parsovaná/splitnutá řádka
+			"generatedComment": string	// Vygenerovaný komentář
+			"buildedLine": string		// Finální (možná) podoba řádky bez vygenerovaného komentáře
+		},
+		...
+	]
+	*/
+	parsed = parsed.map(x => {
+		let formatted = formatter.formatLine(x);
+		return formatted == null ? null : {
+			"processed": false,
+			"parsed": formatted,
+			"generatedComment": null,
+			"buildedLine": null
+		};
+	});
+	parsed = parsed.filter(x => x != null);
+
+
+	// Nejdříve inteligentní komentáře
+	if (commentRules.allowInteligentComments) {
+		const l = parsed.length;
+		for (let x = 0; x < l; x++) {
+			if (parsed[0]["processed"]) continue;
+		}
 	}
-	
-    return formater.postFormatCode(formater.joinLines(output));
+
+	// Pak normální
+	if (commentRules.allowNormalComments) {
+		for (let lineData of parsed) {
+			if (lineData["processed"]) continue;
+			lineData["generatedComment"] = lineData["parsed"][3] ? generateComment(lineData["parsed"], commentRules.selectedCommenters) : null;
+			lineData["processed"] = true;
+		}
+	}
+
+
+	// Následuje skládání řádek...
+	for (let lineData of parsed)
+		lineData["buildedLine"] = formatter.buildLine(lineData);
+
+
+	// ... a pak složení celého kódu
+	return formatter.buildCode(parsed);
 }
+
 
 function generateComment(splittedLine, selected) {
-    let instruction = splittedLine[3], op = splittedLine[5] ? splitOp(splittedLine[5]) : "";
-    if (!instructionData.hasOwnProperty(instruction))
-        throw new Error("Neznámá instrukce '" + instruction + "'");
-    return getCommenter(instruction, selected)(op, splittedLine);
+	let instruction = splittedLine[3], op = splittedLine[5] ? splitOp(splittedLine[5]) : "";
+	if (!instructionData.hasOwnProperty(instruction))
+		throw new Error("Neznámá instrukce '" + instruction + "'");
+	return getCommenter(instruction, selected)(op, splittedLine);
 }
 
 function getCommenter(instruction, selected) {
 	instruction = instruction.toLowerCase();
-    return instructionData[instruction][selected[instruction] ?? 0];
+	return instructionData[instruction][selected[instruction] ?? 0];
 }
-
