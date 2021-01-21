@@ -1,7 +1,7 @@
-let input, output, toastEl, loadedFileName = "", formater, commentRules;
+let input, output, toastEl, loadedFileName = "", formatter, commentRules;
 
-temp = getCookie("formater");
-formater = new Formater(temp == "" ? {} : JSON.parse(temp));
+temp = getCookie("formatter");
+formatter = new Formatter(temp == "" ? {} : JSON.parse(temp));
 temp = getCookie("commentRules");
 commentRules = new CommentRules(temp == "" ? {} : JSON.parse(temp));
 delete temp;
@@ -20,7 +20,7 @@ window.onload = () => {
 function makeItHappen() {
     let result;
     try {
-        result = commentCode(input.value, formater, commentRules);
+        result = commentCode(input.value, formatter, commentRules);
     } catch (e) {
         if ("stack" in e)
             result = e.stack;
@@ -79,7 +79,7 @@ function paste(e) {
 }
 
 function saveSettings() {
-    setCookie("formater", JSON.stringify(formater), 60);
+    setCookie("formatter", JSON.stringify(formatter), 60);
     setCookie("commentRules", JSON.stringify(commentRules), 60);
     toast("Nastavení uloženo");
 }

@@ -1,4 +1,4 @@
-class Formater {
+class Formatter {
 	removeLineComments			= true;			// => Odstraní tento komentář:	mov R16, R1 ;Komentář s instrukcí
 	removeFullLineComments		= false;		// => Odstraní tento komentář:	;Samostatný komentář
 
@@ -172,6 +172,7 @@ const isLabelString = (x) => {
 	return x.match(/^[a-zA-Z]\w*/) !== null;
 };
 //const isFullLineComment = (line) => typeof line == "string" ? line.match(/\s*;.*/) !== null : !line[1] && !line[3] && !line[5] && line[7];
+//TODO: Remove this ↑↑↑
 
 function parseCode(code) {
 	let parsed = [];
@@ -179,25 +180,24 @@ function parseCode(code) {
 		parsed.push(new LineData(line));
 	return parsed;
 }
-function commentCode(code, formatter = new Formater(), commentRules = new CommentRules()) {
-	formater = formater ?? new Formater();
+function commentCode(code, formatter = new Formatter(), commentRules = new CommentRules()) {
+	formatter = formatter ?? new Formatter();
 	commentRules = commentRules ?? new CommentRules();
 
 	let parsed = [];
 	for (let lineData of parseCode(code)) {
 		let stack = [lineData];
-		let stackLineData; //TODO: Merge with lineData
 		while (stack.length > 0) {
-			stackLineData = stack.pop();
-			let formatted = formatter.formatLine(stackLineData);
+			lineData = stack.pop();
+			let formatted = formatter.formatLine(lineData);
 			if (formatted == null)
 				continue;
 			if (!(formatted instanceof LineData)) { // => array
 				stack = stack.concat(formatted.reverse());
 				continue;
 			}
-			stackLineData = formatted;
-			parsed.push(stackLineData);
+			lineData = formatted;
+			parsed.push(lineData);
 		}
 	}
 
@@ -207,7 +207,7 @@ function commentCode(code, formatter = new Formater(), commentRules = new Commen
 		const l = parsed.length;
 		for (let x = 0; x < l; x++) {
 			if (parsed[x].processed) continue;
-
+			
 		}
 	}
 
