@@ -238,7 +238,8 @@ function generateComment(lineData, selected) {
 }
 function getCommenter(instruction, selected) {
 	instruction = instruction.toLowerCase();
-	return instructionData[instruction][selected[instruction] ?? 0];
+	let instructionDataIndex = selected.hasOwnProperty(instruction) ? selected[instruction] ?? 0 : 0;
+	return instructionData[instruction][instructionDataIndex];
 }
 
 
