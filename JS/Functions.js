@@ -1,8 +1,8 @@
 /*
 
 **********   JavaScript - module Functions.js   **********
-**********            Version: 2.3.2            **********
-**********   Date of publication:  22. 4. 2020   **********
+**********            Version: 2.3.3            **********
+**********   Date of publication: 14. 2. 2021   **********
 **********           Author:  Hackrrr           **********
 
 NOTE:   Hackrrr is not author of all these codes (functions) - Some of these codes (functions) are creations of someone else.
@@ -27,6 +27,7 @@ setCookie(str0, any0, int0)         - Creates a cookie with name [str0] and valu
 getCookie(str0)                     - Returns value of cookie with name [str0].
 killCookie(str0)                    - Destroys cookie with name [str0].
 getRandom(int0, int1)               - Returns 'random' natural number between [int0] and [int1] (both inclusive).
+getRandomElement(arr0)              - Returns random element of array [arr0].
 getHttpVar(str0)                    - Returns value of super global variable (in HTTP/HTTPS adress) with name [str0].
 haveUpperCase(str0)                 - Checks if string [str0] have letter in upper case. If true, return true, else return false.
 haveLowerCase(str0)                 - Checks if string [str0] have letter in lower case. If true, return true, else return false.
@@ -75,6 +76,8 @@ TO DO:
     - Test 'loadScript()' (especially for cross-site scripts and update REF if it is supported or not)
 
 CHANGELOG:
+    v2.3.3:
+        - Added getRandomElement()
     Latest:
         So this is start of 'Changelog'...
         - Added 'Changelog' and 'To Do' sections
@@ -104,7 +107,7 @@ const consoleCss_warning = "border-left: 5px rgba(250, 200, 50, 0.9) solid; padd
 const consoleCss_info = "border-left: 5px rgba(0, 0, 250, 0.9) solid; padding: 2px 7px; background: rgba(0, 0, 155, 0.3); font-size: 12px;";
 //Values for debugVar: Proxy, ObjectCreator, Warning, Error, ImagePreloader
 const debugVar = "Error Warning ImagePreloader".split(" ");
-const moduleInfo = "Funcions.js - v2.3.2; Publication: 22. 4. 2020; Author: Hackrrr (see REF)";
+const moduleInfo = "Funcions.js - v2.3.3; Publication: 14. 2. 2021; Author: Hackrrr (see REF)";
 
 function getCookie(name) {
     var name = name + "=";
@@ -132,6 +135,7 @@ function setCookie(name, value, days) {
 const killCookie = (name) => document.cookie = name + "=; expires=Thu, 01 Jan 1000 00:00:00 UTC; path=/;";
 
 const getRandom = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+const getRandomElement = (arr) => arr[getRandom(0, arr.length)];
 
 function getHttpVar(variable) {
     var str = window.location.search.substring(1);

@@ -86,5 +86,9 @@ textarea:focus {
 	border-radius: 50px;
 
 	transition: 0.75s ease-in-out;
+	transition-property: opacity;
 	opacity: 0;
+}
+.toast:hover {
+	background-color: #333C;
 }

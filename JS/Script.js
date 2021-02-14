@@ -1,9 +1,16 @@
-let input, output, toastEl, loadedFileName = "", formatter, commentRules;
+let input, output, toastEl, toastTimeoutID, loadedFileName = "", formatter, commentRules;
 
+//TODO: "Používáme sušenky" alert :)
+//TODO: Migrate to Local Storage API? (a tedy "ukládáme soubory" alert :) )
 temp = getCookie("formatter");
 formatter = new Formatter(temp == "" ? {} : JSON.parse(temp));
-temp = getCookie("commentRules");
+temp = getCookie("commentRules"); //TODO: Fix error on added instrucion if selected was saved...
 commentRules = new CommentRules(temp == "" ? {} : JSON.parse(temp));
+temp = getCookie("intelligentCommenters");
+if (temp != "")
+    for (let inteligentCommenter of intelligentCommenters)
+        if (inteligentCommenter.name in temp)
+            inteligentCommenter.settings = temp[inteligentCommenter.name];
 delete temp;
 for (let instruction of Object.keys(instructionData)) {
     if (!(instruction in commentRules.selectedCommenters)) {
@@ -26,6 +33,7 @@ function makeItHappen() {
             result = e.stack;
         else
             result = e.toString();
+        console.error(e);
     }
     if (result.trim() == "") result = "";
     output.value = result;
@@ -38,11 +46,11 @@ async function keyboardHandle(e) {
         }  else if (e.keyCode == 32) {
             let promise = navigator?.clipboard?.writeText(output.value);
             if (promise == null) {
-                toast("Nekompatibilný prohlížeč - Nelze zkopírovat výsledek (Objekt 'navigator' neexistuje nebo neobsahuje vlastnost 'clipboard')");
+                createToast("Nekompatibilný prohlížeč - Nelze zkopírovat výsledek (Objekt 'navigator' neexistuje nebo neobsahuje vlastnost 'clipboard')");
                 return;
             }
             await promise;
-            toast("Výsledek byl zkopírován");
+            createToast("Výsledek byl zkopírován");
         } else if (e.keyCode == 83) {
             let canSave = false;
             try {
@@ -52,7 +60,7 @@ async function keyboardHandle(e) {
                 e.preventDefault();
                 saveAs(new Blob([output.value], {type: "text/plain;charset=utf-8"}), loadedFileName);
             } else {
-                toast("Nekompatibilný prohlížeč - Nelze uložit soubor (Třída Blob neexistuje)");
+                createToast("Nekompatibilný prohlížeč - Nelze uložit soubor (Třída Blob neexistuje)");
             }
         }
     }
@@ -60,14 +68,15 @@ async function keyboardHandle(e) {
 function drop(e) { // Dropujeme do Tilted boyz POGGERS
     e.preventDefault();
     // .getData() z Drop and Drag Web API nefunguje... Možná funguje jen pro věci v rámci aplikace? (tedy ne pro soubory...)
+    let file = e.dataTransfer.files[0];
+    if (!file || !("text" in file)) return;
     input.value = "Načítání ...";
     input.readOnly = true;
-    let file = e.dataTransfer.files[0];
     file.text().then((x) => {
         loadedFileName = file.name;
         input.value = x;
         input.readOnly = false;
-        toast(`Soubor '${file.name}' načten`);
+        createToast(`Soubor '${file.name}' načten`);
         makeItHappen();
     });
 }
@@ -81,13 +90,21 @@ function paste(e) {
 function saveSettings() {
     setCookie("formatter", JSON.stringify(formatter), 60);
     setCookie("commentRules", JSON.stringify(commentRules), 60);
-    toast("Nastavení uloženo");
+    let intelligentCommentersSettings = {};
+    for (let intelligentCommenter of intelligentCommenters)
+        intelligentCommentersSettings[intelligentCommenter.name] = intelligentCommenter.settings;
+    setCookie("intelligentCommenters", JSON.stringify(intelligentCommentersSettings) ,60);
+    createToast("Nastavení uloženo");
 }
 
-function toast(str) {
+function createToast(str, timeout = 1500) {
     toastEl.innerHTML = str;
     toastEl.style.opacity = 1;
-    setTimeout(() => {
-        toastEl.style.opacity = 0;
-    }, 1500);
+    if (timeout)
+        toastTimeoutID = setTimeout(killToast, timeout);
+}
+function killToast() {
+    clearTimeout(toastTimeoutID);
+    toastTimeoutID = null;
+    toastEl.style.opacity = 0;
 }
