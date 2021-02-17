@@ -600,7 +600,7 @@ const intelligentCommenters = [
 				lineData.generatedComment = [
 					`...při přerušení, kdy nastane ${addrInfo.desc.toLowerCase()}, se provede ${lineData.instruction == 'rjmp' ? '(relativní) ' : ''}skok na ${lineData.operators[0] instanceof Operator_Label ? 'návěstí "' + lineData.operators[0].value + '"' : 'adresu' + lineData.operators[0].value}`,
 					`...když nastane ${addrInfo.desc.toLowerCase()}, ${lineData.instruction == 'rjmp' ? 'relativně se skočí' : 'skočí se'} na ${lineData.operators[0] instanceof Operator_Label ? 'návěstí "' + lineData.operators[0].value + '"' : 'adresu' + lineData.operators[0].value}`
-				][this.settings & 2];
+				][(this.settings & 2) >> 1];
 				lineData.processed = true;
 			}
 		}
