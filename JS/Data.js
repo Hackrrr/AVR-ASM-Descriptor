@@ -1,6 +1,6 @@
 const OTHER_DATA = {
 	"INTERRUPT_TABLE_ADDRESSES": {
-		0x0000:	{name: "",			desc: "Reset"}, //TODO: This
+		0x0000:	{name: "",			desc: "Reset"},
 		0x0002:	{name: "INT0addr",	desc: "External Interrupt Request 0 (pin D2)"}, //TODO: This
 		0x0004:	{name: "INT1addr",	desc: "External Interrupt Request 1 (pin D3)"}, //TODO: This
 		0x0006:	{name: "PCI0addr",	desc: "Pin Change Interrupt Request 0 (pins D8 to D13)"}, //TODO: This
@@ -577,7 +577,6 @@ POZOR! (ještě jednou):
 const intelligentCommenters = [
 	new IntelligentCommenter(function(lineData, parsedCode, lineIndex) {
 		if (lineData.operators[0].comparableValue == lineData.operators[1].comparableValue) {
-			lineData.generatedComment = `Hodnota registru se nemění, pouze se nastaví Z flag, pokud jsou všechny bit registru na nule`;
 			lineData.generatedComment = [
 				`Hodnota registru ${lineData.operators[0].register} se nemění, pouze se nastaví Z flag, pokud jsou všechny bit registru na nule`,
 				`Pokud je hodnota registru ${lineData.operators[0].register} nula, nastaví se Z flag na jedna (registr zůstává stejný)`
