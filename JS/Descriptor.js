@@ -128,10 +128,6 @@ class IntelligentCommenter extends Function {
 	instructions = [];
 	settings = 0;
 
-	// shouldTry(instruction) {
-	// 	return this.instructions.length == 0 || this.instructions.includes(instruction);
-	// }
-
 	constructor(commenter, instructions = [], name = "", settings = 0) {
 		super();
 
@@ -170,7 +166,7 @@ class IntelligentCommenter extends Function {
 		return Object.setPrototypeOf(wrapper, IntelligentCommenter.prototype);
 		/*
 		Máte ještě nějaké otázky? Třeba "Proč tady je to Object.setPrototypeOf(...)"?
-		No tak máte smůlu, protože já už mám debugování téhle classy dost :) (prostě JS eShrug )
+		No tak máte smůlu, protože já už mám debugování téhle classy dost :) (prostě JS eShrug)
 		*/
 	}
 }
@@ -193,192 +189,6 @@ class Operator {
 	}
 	toString() {
 		return this.originalValue;
-	}
-}
-class Operator_Register extends Operator {
-	static validator = value => value.match(/^(?:r\d\d?)$/i) !== null;
-	register = "";
-	registerNumber = 0;
-	get comparableValue() {
-		return this.register.toLocaleLowerCase() + this.registerNumber;
-	}
-	constructor(value) {
-		super(value);
-		this.register = value;
-		this.registerNumber = Number(value.slice(1));
-	}
-	offsetRegister(offset) {
-		return "r" + (this.registerNumber + offset);
-	}
-}
-class Operator_RegisterRange extends Operator {
-	static validator = value => value.match(/^(?:r\d\d?):(?:r\d\d?)$/i) !== null;
-	registers = [];
-	registerNumbers = [];
-	get comparableValue() {
-		return this.registers.join(":").toLocaleLowerCase();
-	}
-	constructor(value) {
-		super(value);
-		this.registers = value.split(":");
-		this.registerNumbers = value.split(":").map(x => Number(x.slice(1)));
-	}
-	offsetRegisters(offset) {
-		let offseted = [];
-		for (let x of this.registerNumbers) offseted.push(x + offset);
-		return "r" + offset.join(":r");
-	}
-}
-class Operator_IndirectRegister extends Operator {
-	static validator = value => value.match(/^(?:(?:[XYZ])|(?:-\s*[XYZ])|(?:[XYZ]\s*\+)|(?:[YZ]\s*\+\s*\d+))$/i) !== null;
-
-	static #modes = Object.freeze({SIMPLE:0,PREDEC:1,POSTINC:2,OFFSET:3});
-	static get Modes() {
-		return this.#modes;
-	}
-	// Proč? Viz Operator_Number.
-
-	mode = 0;
-	register = "";
-	offset = 0;
-	get comparableValue() {
-		switch (this.mode) {
-			case Operator_IndirectRegister.Modes.SIMPLE:
-				return this.register.toUpperCase();
-			case Operator_IndirectRegister.Modes.PREDEC:
-				return "-" + this.register.toUpperCase();
-			case Operator_IndirectRegister.Modes.POSTINC:
-				return this.register.toUpperCase() + "+";
-			case Operator_IndirectRegister.Modes.OFFSET:
-				return this.register.toUpperCase() + "+" + this.offset;
-		}
-	}
-	constructor(value) {
-		super(value);
-		if (value.length == 1) {
-			this.mode = Operator_IndirectRegister.Modes.SIMPLE;
-			this.register = value;
-		} else {
-			let match = value.match(/^(?:-\s*([XYZ]))$/);
-			if (match == null) {
-				let match = value.match(/^(?:([XYZ])\s*\+)$/);
-				if (match == null) {
-					let match = value.match(/^(?:([YZ])\s*\+\s*(\d+))$/);
-					this.mode = Operator_IndirectRegister.Modes.OFFSET;
-					this.register = match[1];
-					this.offset = Number(match[2]);
-				} else {
-					this.mode = Operator_IndirectRegister.Modes.POSTINC;
-					this.register = match[1];
-				}
-			} else {
-				this.mode = Operator_IndirectRegister.Modes.PREDEC;
-				this.register = match[1];
-			}
-		}
-	}
-}
-class Operator_Number extends Operator {
-	static validator = value => value.match(/^(?:(?:0b[01]+)|(?:(?:0x|\$)[0-9A-Fa-f]+)|(?:\d+))$/i) !== null;
-
-	static #radixes = Object.freeze({BIN:2,OCT:8,DEC:10,HEX:16});
-	static get Radixes() {
-		return this.#radixes;
-	}
-	/*
-	Takže... JS zatím nepodporuje enumy. ("zatím", protože zde máme "enum" keyword, který je zatím jen rezervovaný - IDK kdy enumy budou, jsem línej hledat TC39 proposal)
-	Co s tím? Uděláme objekt, který freezneme.
-	"Ok, ale proč tu máme tuhle věc s privatním statickým fieldem a getterem?"
-	Protože JS nepodporuje konstantní (static) fieldy (a já to chci mít encapsulovaný v classe). Takže si uděláme privátní statický field, kam dáme ten freeznutý objekt.
-	*/
-
-	radix;
-	value = 0;
-	get comparableValue() {
-		return this.value;
-	}
-	constructor(value) {
-		super(value);
-		if (value.startsWith("0")) {
-			switch (value[1]) {
-				case "x":
-					this.radix = Operator_Number.Radixes.HEX;
-					this.value = Number(value);
-					break;
-				case "b":
-					this.radix = Operator_Number.Radixes.BIN;
-					this.value = Number(value);
-					break;
-				default:
-					this.radix = Operator_Number.Radixes.OCT;
-					this.value = Number("0o" + value); //Tu jednu nulu zleva (v originální hodnotě) můžeme ignorovat...
-					break;
-			}
-		} else if (value.startsWith("$")) {
-			this.radix = Operator_Number.Radixes.HEX;
-			this.value = Number("0x" + value.slice(1));
-		} else {
-			this.radix = Operator_Number.Radixes.DEC;
-			this.value = Number(value);
-		}
-	}
-}
-class Operator_String extends Operator {
-	static validator = value => value.match(/^(?:(?:'\\'')|(?:'[^']')|(?:(?<!\\)"(?:(?:\\")|[^"])*?(?<!\\)"))$/) !== null;
-	value = "";
-	get comparableValue() {
-		return this.value;
-	}
-	constructor(value) {
-		super(value);
-		this.value = value.slice(1,-1);
-	}
-}
-class Operator_Predefined extends Operator {
-	static validator = value => value in constantMapping;
-	name = "";
-	get comparableValue() {
-		return this.name;
-	}
-	constructor(value) {
-		super(value);
-		this.name = value;
-	}
-	tryGetValue() {
-		return constantMapping[this.name];
-	}
-}
-class Operator_ModifiedPredefined extends Operator {
-	static validator = value => {
-		let match = value.match(/^(\w+)\(.+\)$/);
-		return match !== null && match[1] in predefinedFunctionMapping;
-	};
-
-	name = "";
-	child = null;
-	get comparableValue() {
-		return this.name + "(" + this.child?.comparableValue + ")";
-	}
-	constructor(value) {
-		super(value);
-		let match = value.match(/^(\w+)\((.+)\)$/);
-		this.name = match[1];
-		this.child = parseOperator(match[2]);
-	}
-	tryGetValue() {
-		let childValue = this.child.tryGetValue();
-		return (childValue === undefined || childValue === null) ? null : predefinedFunctionMapping[this.name](childValue);
-	}
-}
-class Operator_Label extends Operator {
-	static validator = value => value.match(/^[a-zA-Z]\w*/) !== null;
-	value = "";
-	get comparableValue() {
-		return this.value;
-	}
-	constructor(value) {
-		super(value);
-		this.value = value;
 	}
 }
 class Operator_Unknown extends Operator {
@@ -437,7 +247,6 @@ const parseOps = (ops) => {
 	for (let op of ops) o.push(parseOperator(op));
 	return o;
 }
-const operatorCheckOrder = [Operator_Register, Operator_Number, Operator_IndirectRegister, Operator_Predefined, Operator_String, Operator_RegisterRange, Operator_ModifiedPredefined, Operator_Label];
 const parseOperator = (value) => {
 	for (let operatorClass of operatorCheckOrder) {
 		if (operatorClass.validator(value))
@@ -526,7 +335,7 @@ function tryGenerateIntelligentComment(lineData, parsedCode, lineIndex) {
 	return false;
 }
 
-function getPreviousSureInstruction(parsedCode, currentLineIndex) {
+function getPreviousSureLinedata(parsedCode, currentLineIndex) {
 	while (currentLineIndex--) { //Nemůže být '--currentLine', protože jinak nezkoušíme nultou řádku (nejdřív se dekrementuje => hodnota = 0 = false => exit)
 		lineData = parsedCode[currentLineIndex];
 		if (lineData.instruction) return lineData;

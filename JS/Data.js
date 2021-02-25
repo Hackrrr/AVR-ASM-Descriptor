@@ -1,3 +1,191 @@
+class Operator_Register extends Operator {
+	static validator = value => value.match(/^(?:r\d\d?)$/i) !== null;
+	register = "";
+	registerNumber = 0;
+	get comparableValue() {
+		return this.register.toLocaleLowerCase() + this.registerNumber;
+	}
+	constructor(value) {
+		super(value);
+		this.register = value;
+		this.registerNumber = Number(value.slice(1));
+	}
+	offsetRegister(offset) {
+		return "r" + (this.registerNumber + offset);
+	}
+}
+class Operator_RegisterRange extends Operator {
+	static validator = value => value.match(/^(?:r\d\d?):(?:r\d\d?)$/i) !== null;
+	registers = [];
+	registerNumbers = [];
+	get comparableValue() {
+		return this.registers.join(":").toLocaleLowerCase();
+	}
+	constructor(value) {
+		super(value);
+		this.registers = value.split(":");
+		this.registerNumbers = value.split(":").map(x => Number(x.slice(1)));
+	}
+	offsetRegisters(offset) {
+		let offseted = [];
+		for (let x of this.registerNumbers) offseted.push(x + offset);
+		return "r" + offset.join(":r");
+	}
+}
+class Operator_IndirectRegister extends Operator {
+	static validator = value => value.match(/^(?:(?:[XYZ])|(?:-\s*[XYZ])|(?:[XYZ]\s*\+)|(?:[YZ]\s*\+\s*\d+))$/i) !== null;
+
+	static #modes = Object.freeze({SIMPLE:0,PREDEC:1,POSTINC:2,OFFSET:3});
+	static get Modes() {
+		return this.#modes;
+	}
+	// Proč? Viz Operator_Number.
+
+	mode = 0;
+	register = "";
+	offset = 0;
+	get comparableValue() {
+		switch (this.mode) {
+			case Operator_IndirectRegister.Modes.SIMPLE:
+				return this.register.toUpperCase();
+			case Operator_IndirectRegister.Modes.PREDEC:
+				return "-" + this.register.toUpperCase();
+			case Operator_IndirectRegister.Modes.POSTINC:
+				return this.register.toUpperCase() + "+";
+			case Operator_IndirectRegister.Modes.OFFSET:
+				return this.register.toUpperCase() + "+" + this.offset;
+		}
+	}
+	constructor(value) {
+		super(value);
+		if (value.length == 1) {
+			this.mode = Operator_IndirectRegister.Modes.SIMPLE;
+			this.register = value;
+		} else {
+			let match = value.match(/^(?:-\s*([XYZ]))$/);
+			if (match == null) {
+				let match = value.match(/^(?:([XYZ])\s*\+)$/);
+				if (match == null) {
+					let match = value.match(/^(?:([YZ])\s*\+\s*(\d+))$/);
+					this.mode = Operator_IndirectRegister.Modes.OFFSET;
+					this.register = match[1];
+					this.offset = Number(match[2]);
+				} else {
+					this.mode = Operator_IndirectRegister.Modes.POSTINC;
+					this.register = match[1];
+				}
+			} else {
+				this.mode = Operator_IndirectRegister.Modes.PREDEC;
+				this.register = match[1];
+			}
+		}
+	}
+}
+class Operator_Number extends Operator {
+	static validator = value => value.match(/^(?:(?:0b[01]+)|(?:(?:0x|\$)[0-9A-Fa-f]+)|(?:\d+))$/i) !== null;
+
+	static #radixes = Object.freeze({BIN:2,OCT:8,DEC:10,HEX:16});
+	static get Radixes() {
+		return this.#radixes;
+	}
+	/*
+	Takže... JS zatím nepodporuje enumy. ("zatím", protože zde máme "enum" keyword, který je zatím jen rezervovaný - IDK kdy enumy budou, jsem línej hledat TC39 proposal)
+	Co s tím? Uděláme objekt, který freezneme.
+	"Ok, ale proč tu máme tuhle věc s privatním statickým fieldem a getterem?"
+	Protože JS nepodporuje konstantní (static) fieldy (a já to chci mít encapsulovaný v classe). Takže si uděláme privátní statický field, kam dáme ten freeznutý objekt.
+	*/
+
+	radix;
+	value = 0;
+	get comparableValue() {
+		return this.value;
+	}
+	constructor(value) {
+		super(value);
+		if (value.startsWith("0")) {
+			switch (value[1]) {
+				case "x":
+					this.radix = Operator_Number.Radixes.HEX;
+					this.value = Number(value);
+					break;
+				case "b":
+					this.radix = Operator_Number.Radixes.BIN;
+					this.value = Number(value);
+					break;
+				default:
+					this.radix = Operator_Number.Radixes.OCT;
+					this.value = Number("0o" + value); //Tu jednu nulu zleva (v originální hodnotě) můžeme ignorovat...
+					break;
+			}
+		} else if (value.startsWith("$")) {
+			this.radix = Operator_Number.Radixes.HEX;
+			this.value = Number("0x" + value.slice(1));
+		} else {
+			this.radix = Operator_Number.Radixes.DEC;
+			this.value = Number(value);
+		}
+	}
+}
+class Operator_String extends Operator {
+	static validator = value => value.match(/^(?:(?:'\\'')|(?:'[^']')|(?:(?<!\\)"(?:(?:\\")|[^"])*?(?<!\\)"))$/) !== null;
+	value = "";
+	get comparableValue() {
+		return this.value;
+	}
+	constructor(value) {
+		super(value);
+		this.value = value.slice(1,-1);
+	}
+}
+class Operator_Predefined extends Operator {
+	static validator = value => value.toUpperCase() in constantMapping;
+	name = "";
+	get comparableValue() {
+		return this.name;
+	}
+	constructor(value) {
+		super(value);
+		this.name = value;
+	}
+	tryGetValue() {
+		return constantMapping[this.name];
+	}
+}
+class Operator_ModifiedPredefined extends Operator {
+	static validator = value => {
+		let match = value.match(/^(\w+)\(.+\)$/);
+		return match !== null && match[1] in predefinedFunctionMapping;
+	};
+
+	name = "";
+	child = null;
+	get comparableValue() {
+		return this.name + "(" + this.child?.comparableValue + ")";
+	}
+	constructor(value) {
+		super(value);
+		let match = value.match(/^(\w+)\((.+)\)$/);
+		this.name = match[1];
+		this.child = parseOperator(match[2]);
+	}
+	tryGetValue() {
+		let childValue = this.child.tryGetValue();
+		return (childValue === undefined || childValue === null) ? null : predefinedFunctionMapping[this.name](childValue);
+	}
+}
+class Operator_Label extends Operator {
+	static validator = value => value.match(/^[a-zA-Z]\w*/) !== null;
+	value = "";
+	get comparableValue() {
+		return this.value;
+	}
+	constructor(value) {
+		super(value);
+		this.value = value;
+	}
+}
+let operatorCheckOrder = [Operator_Register, Operator_Number, Operator_IndirectRegister, Operator_Predefined, Operator_String, Operator_RegisterRange, Operator_ModifiedPredefined, Operator_Label];
+
 const OTHER_DATA = {
 	"INTERRUPT_TABLE_ADDRESSES": {
 		0x0000:	{name: "",			desc: "Reset"},
@@ -23,7 +211,7 @@ const OTHER_DATA = {
 		0x0028:	{name: "UTXCaddr",	desc: "USART, Tx Complete"}, //TODO: This
 		0x002A:	{name: "ADCCaddr",	desc: "ADC Conversion Complete"}, //TODO: This
 		0x002C:	{name: "ERDYaddr",	desc: "READY EEPROM Ready"}, //TODO: This
-		0x002E:	{name: "ACIaddr",	desc: "Analog Comparator"}, //TODO: This
+		0x002E:	{name: "ACIaddr",	desc: "Změna stavu analogového komparátoru"},
 		0x0030:	{name: "TWIaddr",	desc: "2-wire Serial Interface (I2C)"}, //TODO: This
 		0x0032:	{name: "SPMRaddr",	desc: "Store Program Memory Ready"}, //TODO: This
 	}
@@ -49,34 +237,34 @@ const predefinedArray = [
 
 
 	// INTERRUPT VECTOR TABLE
-	new Predefined("INT0addr",	"External Interrupt Request 0 (pin D2)", 0x0002),
-	new Predefined("INT1addr",	"External Interrupt Request 1 (pin D3)", 0x0004),
-	new Predefined("PCI0addr",	"Pin Change Interrupt Request 0 (pins D8 to D13)", 0x0006),
-	new Predefined("PCI1addr",	"Pin Change Interrupt Request 1 (pins A0 to A5)", 0x0008),
-	new Predefined("PCI2addr",	"Pin Change Interrupt Request 2 (pins D0 to D7)", 0x000A),
-	new Predefined("WDTaddr",	"Watchdog Timeout Interrupt", 0x000C),
-	new Predefined("OC2Aaddr",	"Timer/Counter2 Compare Match A", 0x000E),
-	new Predefined("OC2Baddr",	"Timer/Counter2 Compare Match B", 0x0010),
-	new Predefined("OVF2addr",	"Timer/Counter2 Overflow", 0x0012),
-	new Predefined("ICP1addr",	"Timer/Counter1 Capture Event", 0x0014),
-	new Predefined("OC1Aaddr",	"Timer/Counter1 Compare Match A", 0x0016),
-	new Predefined("OC1Baddr",	"Timer/Counter1 Compare Match B", 0x0018),
-	new Predefined("OVF1addr",	"Timer/Counter1 Overflow", 0x001A),
-	new Predefined("OC0Aaddr",	"Timer/Counter0 Compare Match A", 0x001C),
-	new Predefined("OC0Baddr",	"Timer/Counter0 Compare Match B", 0x001E),
-	new Predefined("OVF0addr",	"Timer/Counter0 Overflow", 0x0020),
-	new Predefined("SPIaddr",	"SPI Serial Transfer Complete", 0x0022),
-	new Predefined("URXCaddr",	"USART, Rx Complete", 0x0024),
-	new Predefined("UDREaddr",	"USART, Data Register Empty", 0x0026),
-	new Predefined("UTXCaddr",	"USART, Tx Complete", 0x0028),
-	new Predefined("ADCCaddr",	"ADC Conversion Complete", 0x002A),
-	new Predefined("ERDYaddr",	"READY EEPROM Ready", 0x002C),
-	new Predefined("ACIaddr",	"Analog Comparator", 0x002E),
-	new Predefined("TWIaddr",	"2-wire Serial Interface (I2C)", 0x0030),
-	new Predefined("SPMRaddr",	"Store Program Memory Ready", 0x0032),
+	new Predefined("INT0addr",	"External Interrupt Request 0 (pin D2)", 0x0002), //TODO: This
+	new Predefined("INT1addr",	"External Interrupt Request 1 (pin D3)", 0x0004), //TODO: This
+	new Predefined("PCI0addr",	"Pin Change Interrupt Request 0 (pins D8 to D13)", 0x0006), //TODO: This
+	new Predefined("PCI1addr",	"Pin Change Interrupt Request 1 (pins A0 to A5)", 0x0008), //TODO: This
+	new Predefined("PCI2addr",	"Pin Change Interrupt Request 2 (pins D0 to D7)", 0x000A), //TODO: This
+	new Predefined("WDTaddr",	"Watchdog Timeout Interrupt", 0x000C), //TODO: This
+	new Predefined("OC2Aaddr",	"Timer/Counter2 Compare Match A", 0x000E), //TODO: This
+	new Predefined("OC2Baddr",	"Timer/Counter2 Compare Match B", 0x0010), //TODO: This
+	new Predefined("OVF2addr",	"Adresa obsluhy přerušení při přetečení časovače/čítače 2", 0x0012),
+	new Predefined("ICP1addr",	"Timer/Counter1 Capture Event", 0x0014), //TODO: This
+	new Predefined("OC1Aaddr",	"Timer/Counter1 Compare Match A", 0x0016), //TODO: This
+	new Predefined("OC1Baddr",	"Timer/Counter1 Compare Match B", 0x0018), //TODO: This
+	new Predefined("OVF1addr",	"Adresa obsluhy přerušení při přetečení časovače/čítače 1", 0x001A),
+	new Predefined("OC0Aaddr",	"Timer/Counter0 Compare Match A", 0x001C), //TODO: This
+	new Predefined("OC0Baddr",	"Timer/Counter0 Compare Match B", 0x001E), //TODO: This
+	new Predefined("OVF0addr",	"Adresa obsluhy přerušení při přetečení časovače/čítače 0", 0x0020),
+	new Predefined("SPIaddr",	"SPI Serial Transfer Complete", 0x0022), //TODO: This
+	new Predefined("URXCaddr",	"USART, Rx Complete", 0x0024), //TODO: This
+	new Predefined("UDREaddr",	"USART, Data Register Empty", 0x0026), //TODO: This
+	new Predefined("UTXCaddr",	"USART, Tx Complete", 0x0028), //TODO: This
+	new Predefined("ADCCaddr",	"ADC Conversion Complete", 0x002A), //TODO: This
+	new Predefined("ERDYaddr",	"READY EEPROM Ready", 0x002C), //TODO: This
+	new Predefined("ACIaddr",	"Adresa obsluhy přerušení při změně stavu analogového komparátoru", 0x002E),
+	new Predefined("TWIaddr",	"2-wire Serial Interface (I2C)", 0x0030), //TODO: This
+	new Predefined("SPMRaddr",	"Store Program Memory Ready", 0x0032), //TODO: This
 ];
 let constantMapping = {};
-for (let predefined of predefinedArray) constantMapping[predefined.name] = predefined;
+for (let predefined of predefinedArray) constantMapping[predefined.name.toUpperCase()] = predefined;
 
 Object.freeze(constantMapping);
 let predefinedFunctionMapping = {
@@ -360,6 +548,38 @@ const instructionData = {
 			return `Porovná se hodnota registru ${op[0]} a hodnota ${op[1]}`;
 		}
 	],
+	"sbrc": [
+		(op) => {
+			return `Pokud není nastaven ${op[1]}. bit v registru ${op[0]}, následující instrukce se přeskočí`;
+		},
+		(op) => {
+			return `Další instrukce se přeskočí, pokud je bit číslo ${op[1]} v registru ${op[1]} roven nule`;
+		}
+	],
+	"sbrs": [
+		(op) => {
+			return `Pokud je nastaven ${op[1]}. bit v registru ${op[0]}, následující instrukce se přeskočí`;
+		},
+		(op) => {
+			return `Další instrukce se přeskočí, pokud je bit číslo ${op[1]} v registru ${op[1]} roven jedničce`;
+		}
+	],
+	"sbic": [
+		(op) => {
+			return `Pokud není nastaven ${op[1]}. bit v registru ${op[0]}, následující instrukce se přeskočí`;
+		},
+		(op) => {
+			return `Další instrukce se přeskočí, pokud je bit číslo ${op[1]} v registru ${op[1]} roven nule`;
+		}
+	],
+	"sbis": [
+		(op) => {
+			return `Pokud je nastaven ${op[1]}. bit v registru ${op[0]}, následující instrukce se přeskočí`;
+		},
+		(op) => {
+			return `Další instrukce se přeskočí, pokud je bit číslo ${op[1]} v registru ${op[1]} roven jedničce`;
+		}
+	],
 	"breq": [
 		(op) => {
 			return op[0] instanceof Operator_Label ? `Pokud Z (= zero flag v SREG) je roven jedničce, (relativní) skok na návěstí "${op[0]}", jinak se pokračuje dál` : `Pokud Z (= zero flag v SREG) je roven jedničce, relativní skok o "${op[0]}", jinak se pokračuje dál`;
@@ -440,6 +660,14 @@ const instructionData = {
 		},
 		(op) => {
 			return `Povolí se globální přerušení`;
+		}
+	],
+	"cli": [
+		(op) => {
+			return `Vymaže se I (= interrupt enable flag v SREG)`;
+		},
+		(op) => {
+			return `Zakáže se globální přerušení`;
 		}
 	],
 
@@ -587,7 +815,7 @@ const intelligentCommenters = [
 	}, ["and", "or"], "Set Z Flag", getRandom(0,1)),
 	
 	new IntelligentCommenter(function(lineData, parsedCode, lineIndex) {
-		let previousLine = getPreviousSureInstruction(parsedCode, lineIndex);
+		let previousLine = getPreviousSureLinedata(parsedCode, lineIndex);
 		if (previousLine?.instruction == ".org") {
 			if (previousLine.operators[0].value in OTHER_DATA.INTERRUPT_TABLE_ADDRESSES) {
 				let addrInfo = OTHER_DATA.INTERRUPT_TABLE_ADDRESSES[previousLine.operators[0].value];
