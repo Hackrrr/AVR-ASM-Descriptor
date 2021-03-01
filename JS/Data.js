@@ -1,4 +1,4 @@
-class Operator_Register extends Operator {
+class Operator_GeneralRegister extends Operator {
 	static validator = value => value.match(/^(?:r\d\d?)$/i) !== null;
 	register = "";
 	registerNumber = 0;
@@ -138,7 +138,7 @@ class Operator_String extends Operator {
 	}
 }
 class Operator_Predefined extends Operator {
-	static validator = value => value.toUpperCase() in constantMapping;
+	static validator = value => value.toUpperCase() in predefinedMapping;
 	name = "";
 	get comparableValue() {
 		return this.name;
@@ -147,11 +147,11 @@ class Operator_Predefined extends Operator {
 		super(value);
 		this.name = value;
 	}
-	tryGetValue() {
-		return constantMapping[this.name];
+	getPredefined() {
+		return predefinedMapping[this.name] ?? null;
 	}
 }
-class Operator_ModifiedPredefined extends Operator {
+class Operator_ModifiedPredefined extends Operator { //TODO: Derivovat z Operator_Predefined (aby se nemuseli psát zbytečné případy pro Operator_ModifiedPredefined)
 	static validator = value => {
 		let match = value.match(/^(\w+)\(.+\)$/);
 		return match !== null && match[1] in predefinedFunctionMapping;
@@ -168,8 +168,8 @@ class Operator_ModifiedPredefined extends Operator {
 		this.name = match[1];
 		this.child = parseOperator(match[2]);
 	}
-	tryGetValue() {
-		let childValue = this.child.tryGetValue();
+	getPredefined() {
+		let childValue = this.child.getPredefined();
 		return (childValue === undefined || childValue === null) ? null : predefinedFunctionMapping[this.name](childValue);
 	}
 }
@@ -184,7 +184,8 @@ class Operator_Label extends Operator {
 		this.value = value;
 	}
 }
-let operatorCheckOrder = [Operator_Register, Operator_Number, Operator_IndirectRegister, Operator_Predefined, Operator_String, Operator_RegisterRange, Operator_ModifiedPredefined, Operator_Label];
+let operatorCheckOrder = [Operator_GeneralRegister, Operator_Number, Operator_IndirectRegister, Operator_Predefined, Operator_String, Operator_RegisterRange, Operator_ModifiedPredefined, Operator_Label];
+
 
 const OTHER_DATA = {
 	"INTERRUPT_TABLE_ADDRESSES": {
@@ -217,8 +218,9 @@ const OTHER_DATA = {
 	}
 }
 
+
 const predefinedArray = [
-	new Predefined("RAMEND", "Adresa na které končí paměť"),
+	new Predefined("RAMEND", "adresa na které končí paměť"),
 
 	new Predefined("SPL"),
 	new Predefined("SPH"),
@@ -230,9 +232,19 @@ const predefinedArray = [
 
 	new Predefined("PINB0"),
 
+	// Časovače/Čítače
 	new Predefined("TCCR0B"),
 	new Predefined("TIMSK0"),
 	new Predefined("TCNT0"),
+
+
+	// Analogový/Digitální komparátor
+	new Predefined("ADCSRB", "ADC Control Status Register B"),
+	new Predefined("DIDR1"),
+
+	new Predefined("ACSR", "Analog Comparator Control Status Register"),
+	new Predefined("ACO", "AC výstup", 5),
+
 
 
 
@@ -245,28 +257,28 @@ const predefinedArray = [
 	new Predefined("WDTaddr",	"Watchdog Timeout Interrupt", 0x000C), //TODO: This
 	new Predefined("OC2Aaddr",	"Timer/Counter2 Compare Match A", 0x000E), //TODO: This
 	new Predefined("OC2Baddr",	"Timer/Counter2 Compare Match B", 0x0010), //TODO: This
-	new Predefined("OVF2addr",	"Adresa obsluhy přerušení při přetečení časovače/čítače 2", 0x0012),
+	new Predefined("OVF2addr",	"adresa obsluhy přerušení při přetečení časovače/čítače 2", 0x0012),
 	new Predefined("ICP1addr",	"Timer/Counter1 Capture Event", 0x0014), //TODO: This
 	new Predefined("OC1Aaddr",	"Timer/Counter1 Compare Match A", 0x0016), //TODO: This
 	new Predefined("OC1Baddr",	"Timer/Counter1 Compare Match B", 0x0018), //TODO: This
-	new Predefined("OVF1addr",	"Adresa obsluhy přerušení při přetečení časovače/čítače 1", 0x001A),
+	new Predefined("OVF1addr",	"adresa obsluhy přerušení při přetečení časovače/čítače 1", 0x001A),
 	new Predefined("OC0Aaddr",	"Timer/Counter0 Compare Match A", 0x001C), //TODO: This
 	new Predefined("OC0Baddr",	"Timer/Counter0 Compare Match B", 0x001E), //TODO: This
-	new Predefined("OVF0addr",	"Adresa obsluhy přerušení při přetečení časovače/čítače 0", 0x0020),
+	new Predefined("OVF0addr",	"adresa obsluhy přerušení při přetečení časovače/čítače 0", 0x0020),
 	new Predefined("SPIaddr",	"SPI Serial Transfer Complete", 0x0022), //TODO: This
 	new Predefined("URXCaddr",	"USART, Rx Complete", 0x0024), //TODO: This
 	new Predefined("UDREaddr",	"USART, Data Register Empty", 0x0026), //TODO: This
 	new Predefined("UTXCaddr",	"USART, Tx Complete", 0x0028), //TODO: This
 	new Predefined("ADCCaddr",	"ADC Conversion Complete", 0x002A), //TODO: This
 	new Predefined("ERDYaddr",	"READY EEPROM Ready", 0x002C), //TODO: This
-	new Predefined("ACIaddr",	"Adresa obsluhy přerušení při změně stavu analogového komparátoru", 0x002E),
+	new Predefined("ACIaddr",	"adresa obsluhy přerušení při změně stavu analogového komparátoru", 0x002E),
 	new Predefined("TWIaddr",	"2-wire Serial Interface (I2C)", 0x0030), //TODO: This
 	new Predefined("SPMRaddr",	"Store Program Memory Ready", 0x0032), //TODO: This
 ];
-let constantMapping = {};
-for (let predefined of predefinedArray) constantMapping[predefined.name.toUpperCase()] = predefined;
+let predefinedMapping = {}; //TODO: Move all mappings to Descriptor.js
+for (let predefined of predefinedArray) predefinedMapping[predefined.name.toUpperCase()] = predefined;
 
-Object.freeze(constantMapping);
+
 let predefinedFunctionMapping = {
 	"LOW": x => {
 		return typeof(x) == "number" ? x & 0b11111111 : null;
@@ -275,10 +287,9 @@ let predefinedFunctionMapping = {
 		return typeof(x) == "number" ? x & 0b1111111100000000 : null;
 	}
 };
-Object.freeze(predefinedFunctionMapping);
+
 
 //TODO: Instrukce movw, .cseg, .db
-
 /*
 Normální komentátor:
 (operátory, splittedLine) => comment
@@ -550,34 +561,34 @@ const instructionData = {
 	],
 	"sbrc": [
 		(op) => {
-			return `Pokud není nastaven ${op[1]}. bit v registru ${op[0]}, následující instrukce se přeskočí`;
+			return `Pokud není nastaven ` + (op[1] instanceof Operator_Number ? `${op[1].value}.` : op[1]) + ` bit v registru ${op[0]}, následující instrukce se přeskočí`;
 		},
 		(op) => {
-			return `Další instrukce se přeskočí, pokud je bit číslo ${op[1]} v registru ${op[1]} roven nule`;
+			return `Další instrukce se přeskočí, pokud je bit ${op[1]} v registru ${op[0]} roven nule`;
 		}
 	],
 	"sbrs": [
 		(op) => {
-			return `Pokud je nastaven ${op[1]}. bit v registru ${op[0]}, následující instrukce se přeskočí`;
+			return `Pokud je nastaven ` + (op[1] instanceof Operator_Number ? `${op[1].value}.` : op[1]) + ` bit v registru ${op[0]}, následující instrukce se přeskočí`;
 		},
 		(op) => {
-			return `Další instrukce se přeskočí, pokud je bit číslo ${op[1]} v registru ${op[1]} roven jedničce`;
+			return `Další instrukce se přeskočí, pokud je bit ${op[1]} v registru ${op[0]} roven jedničce`;
 		}
 	],
 	"sbic": [
 		(op) => {
-			return `Pokud není nastaven ${op[1]}. bit v registru ${op[0]}, následující instrukce se přeskočí`;
+			return `Pokud není nastaven ` + (op[1] instanceof Operator_Number ? `${op[1].value}.` : op[1]) + ` bit v registru ${op[0]}, následující instrukce se přeskočí`;
 		},
 		(op) => {
-			return `Další instrukce se přeskočí, pokud je bit číslo ${op[1]} v registru ${op[1]} roven nule`;
+			return `Další instrukce se přeskočí, pokud je bit ${op[1]} v registru ${op[0]} roven nule`;
 		}
 	],
 	"sbis": [
 		(op) => {
-			return `Pokud je nastaven ${op[1]}. bit v registru ${op[0]}, následující instrukce se přeskočí`;
+			return `Pokud je nastaven ` + (op[1] instanceof Operator_Number ? `${op[1].value}.` : op[1]) + ` bit v registru ${op[0]}, následující instrukce se přeskočí`;
 		},
 		(op) => {
-			return `Další instrukce se přeskočí, pokud je bit číslo ${op[1]} v registru ${op[1]} roven jedničce`;
+			return `Další instrukce se přeskočí, pokud je bit ${op[1]} v registru ${op[0]} roven jedničce`;
 		}
 	],
 	"breq": [
@@ -600,18 +611,18 @@ const instructionData = {
 	// Bitwise
 	"sbi": [
 		(op) => {
-			return `Nastaví ${op[1].value}. bit ` + (op[0] instanceof Operator_Number ? `na adrese ${op[0]}` : `v registru ${op[0]}`);
+			return "Nastaví se " + (op[1] instanceof Operator_Number ? `${op[1].value}.` : op[1]) + " bit " + (op[0] instanceof Operator_Number ? `na adrese ${op[0]}` : `v registru ${op[0]}`);
 		},
 		(op) => {
-			return `Hodnota bitu číslo ${op[1].value} ` + (op[0] instanceof Operator_Number ? `na adrese ${op[0]}` : `v registru ${op[0]}`) + "se nastaví na 1";
+			return `Hodnota bitu ${op[1] instanceof Operator_Number ? op[1].value : op[1]} ` + (op[0] instanceof Operator_Number ? `na adrese ${op[0]}` : `v registru ${op[0]}`) + " se nastaví na 1";
 		}
 	],
 	"cbi": [
 		(op) => {
-			return `Vymaže ${op[1].value}. bit ` + (op[0] instanceof Operator_Number ? `na adrese ${op[0]}` : `v registru ${op[0]}`);
+			return "Vymaže se " + (op[1] instanceof Operator_Number ? `${op[1].value}.` : op[1]) + " bit " + (op[0] instanceof Operator_Number ? `na adrese ${op[0]}` : `v registru ${op[0]}`);
 		},
 		(op) => {
-			return `Hodnota bitu číslo ${op[1].value} ` + (op[0] instanceof Operator_Number ? `na adrese ${op[0]}` : `v registru ${op[0]}`) + "se nastaví na 0";
+			return `Hodnota bitu ${op[1] instanceof Operator_Number ? op[1].value : op[1]} ` + (op[0] instanceof Operator_Number ? `na adrese ${op[0]}` : `v registru ${op[0]}`) + " se nastaví na 0";
 		}
 	],
 	"lsl": [
@@ -740,10 +751,10 @@ const instructionData = {
 	],
 	"in": [
 		(op) => {
-			return `Načtení hodnoty z portu ${op[1]} do registru ${op[0]}`;
+			return `Načtení hodnoty ze vstupního registru ${op[1]} do registru ${op[0]}`;
 		},
 		(op) => {
-			return `Ze vstupního portu ${op[0]} se zapíše hodnota do registru ${op[1]}`;
+			return `Ze vstupního registru ${op[0]} se zapíše hodnota do registru ${op[1]}`;
 		}
 	],
 	"out": [
@@ -781,6 +792,8 @@ const instructionData = {
 		}
 	],
 };
+
+
 /*
 Inteligentní komentátor:
 (lineData, parsovaný kód, index řádky)
@@ -798,10 +811,9 @@ new IntelligentCommenter(function(lineData, parsedCode, lineIndex) {
 }, [""], "")
 
 POZOR! (ještě jednou):
-	Tohle je JS. Pozor na scoping! Nelze napsat '(lineData, parsedCode, lineIndex) => { ... }', jelikož pak nelze přistupovat k vlastnostem IntelligentCompleter(u).
+	Tohle je JS. Pozor na scoping! Nelze napsat '(lineData, parsedCode, lineIndex) => { ... }', jelikož pak nelze přistupovat k vlastnostem IntelligentCompleteru.
 	Argument 'commenter' musí mít "vlastní" scope - pokud použijeme arrow funkci, scopem bude global scope (= window).
 */
-
 const intelligentCommenters = [
 	new IntelligentCommenter(function(lineData, parsedCode, lineIndex) {
 		if (lineData.operators[0].comparableValue == lineData.operators[1].comparableValue) {
@@ -810,6 +822,7 @@ const intelligentCommenters = [
 				`Pokud je hodnota registru ${lineData.operators[0].register} nula, nastaví se Z flag na jedna (registr zůstává stejný)`
 			][this.settings];
 			lineData.processed = true;
+			return true;
 		}
 		return false;
 	}, ["and", "or"], "Set Z Flag", getRandom(0,1)),
@@ -825,12 +838,189 @@ const intelligentCommenters = [
 				][this.settings & 1];
 				previousLine.processed = true;
 				lineData.generatedComment = [
-					`...při přerušení, kdy nastane ${addrInfo.desc.toLowerCase()}, se provede ${lineData.instruction == 'rjmp' ? '(relativní) ' : ''}skok na ${lineData.operators[0] instanceof Operator_Label ? 'návěstí "' + lineData.operators[0].value + '"' : 'adresu' + lineData.operators[0].value}`,
-					`...když nastane ${addrInfo.desc.toLowerCase()}, ${lineData.instruction == 'rjmp' ? 'relativně se skočí' : 'skočí se'} na ${lineData.operators[0] instanceof Operator_Label ? 'návěstí "' + lineData.operators[0].value + '"' : 'adresu' + lineData.operators[0].value}`
+					`...při přerušení, kdy nastane ${addrInfo.desc}, se provede ${lineData.instruction == 'rjmp' ? '(relativní) ' : ''}skok na ${lineData.operators[0] instanceof Operator_Label ? 'návěstí "' + lineData.operators[0].value + '"' : 'adresu' + lineData.operators[0].value}`,
+					`...když nastane ${addrInfo.desc}, ${lineData.instruction == 'rjmp' ? 'relativně se skočí' : 'skočí se'} na ${lineData.operators[0] instanceof Operator_Label ? 'návěstí "' + lineData.operators[0].value + '"' : 'adresu' + lineData.operators[0].value}`
 				][(this.settings & 2) >> 1];
 				lineData.processed = true;
+				return true;
 			}
 		}
 		return false;
-	}, ["rjmp", "jmp"], "Interupt table jump", getRandom(0,3))
+	}, ["rjmp", "jmp"], "Interupt table jump", getRandom(0,3)),
+
+	new IntelligentCommenter(function(lineData, parsedCode, lineIndex) {
+		// Jedná se o přiřatení do registru?
+		if (!(lineData.operators[0] instanceof Operator_GeneralRegister || lineData.operators[0] instanceof Operator_Predefined))
+			return false;
+		
+		let register = lineData.operators[0] instanceof Operator_GeneralRegister ? lineData.operators[0].register : lineData.operators[0].name;
+		if (!(register in registerMapping))
+			return false;
+
+		
+		// Dokážeme zjistit, kterou hodnotu dosazujeme? (+ ji případně odvodit)
+		let prev;
+		let value = 0;
+		if (lineData.operators[1] instanceof Operator_GeneralRegister) {
+			prev = getPreviousSureLinedata(parsedCode, lineIndex);
+			if (prev.instruction == "ldi" && prev.operators[1] instanceof Operator_Number) {
+				value = prev.operators[1].value;	
+			}
+		} else if (lineData.operators[1] instanceof Operator_Number) {
+			value = lineData.operators[1].value;
+		} else if (lineData.operators[1] instanceof Operator_Predefined) {
+			value = lineData.operators[1].getPredefined()?.value;
+			if (value === null)
+				return false;
+		} else {
+			return false;
+		}
+		
+		let registerComment = generateCommentForRegister(register, value);
+		if (registerComment === false)
+			return false;
+		
+		if ((this.settings & 2) == 0 && lineData.operators[1] instanceof Operator_GeneralRegister) {
+			prev.generatedComment = "";
+			prev.processed = true;
+		}
+
+		lineData.processed = true;
+		if (value === 0)
+			lineData.generatedComment = [
+				`Registr ${register} se vynuluje, tudíž ${registerComment}`,
+				`${firstLetterToUpperCase(registerComment)}, protože se všechny bity registru ${register} nastaví na 0`
+			][(this.settings & 4) >> 2];
+		else
+			lineData.generatedComment = [
+				`Do registru ${register} se uloží hodnota '${value}', tudíž ${registerComment}`,
+				`${firstLetterToUpperCase(registerComment)}, protože se hodnota '${value}' zapíše do registru ${register}`
+			][this.settings & 1];
+
+		return true;
+	}, ["ldi", "sts", "out"], "Register Commenters", getRandom(0,7)),
 ];
+
+
+/*
+Register komentátor:
+(value)
+value			- Hodnota, která se umístí do registru
+register		- Registr, pro který je požadován komentář
+				(protože pokud je daný komentáror pro více registrů, tak nelze poznat, o jaký se zrovna jedná)
+
+Vrací vygenerovaný komentář jako string, případně null pokud vygenerovat nelze
+Komentář by neměl mít velké písmeno na začátku, pokud se nejedná např. o zkratku:
+	Správně:	záporný stav komparátoru bude brán z multiplexoru
+	Špatně:		Záporný stav komparátoru bude brán z multiplexoru
+
+new RegisterCommenter(function(value) {
+	return "";
+}, [""])
+
+POZOR! Nelze použít arrow funkce:
+	Tohle je JS. Pozor na scoping! Nelze napsat '(lineData, parsedCode, lineIndex) => { ... }', jelikož pak nelze přistupovat k vlastnostem IntelligentCompleteru.
+	Argument 'commenter' musí mít "vlastní" scope - pokud použijeme arrow funkci, scopem bude global scope (= window).
+*/
+const registerCommenters = [
+	new RegisterCommenter(function(value, register) {
+		/*
+		ADC Control and Status register B
+		Bity:
+			0 - ADTS0							MISSING
+			1 - ADTS1							MISSING
+			2 - ADTS2							MISSING
+			6 - ACME; AC multiplexor enable?
+		*/
+
+		
+		if (value & 0b0100_0000) { // Bit 6
+			return [
+				"záporný stav komparátoru bude brán z multiplexoru",
+				"multiplexor bude brán jako záporný stav komparátoru"
+			][this.settings];
+		} else {
+			return [
+				"záporný stav komparátoru bude brán z pinu AIN1",
+				"pin AIN1 bude brán jako záporný stav komparátoru"
+			][this.settings];
+		}
+
+		//return null;
+	}, ["ADCSRB"], getRandom(0,1)),
+
+	new RegisterCommenter(function(value, register) {
+		// Bity 7 (ACD), 6 (ACBG), 5 (ACO; AC output), 4 (ACI; AC interrupt (příznak)), 3 (ACIE; AC interrutp enable), 2 (ACIC), 1 (ACIS1), 0 (ACIS0)
+		/*
+		Bity:
+			0 - ACIS0; AC interrupt něco
+			1 - ACIS1; AC interrupt něco
+			2 - ACIC
+			3 - ACIE; AC interrutp enable
+			4 - ACI; AC interrupt (příznak)
+			5 - ACO; AC output
+			6 - ACBG
+			7 - ACD
+		*/
+
+		if (value & 0b0000_1000) { // Bit 3
+			return [
+				"přerušení z komparátoru jsou povolena",
+				"povolí se přerušení z komparátoru"
+			][this.settings];
+		} else {
+			return [
+				"přerušení z komparátoru jsou zakázána",
+				"zakáží se přerušení z komparátoru"
+			][this.settings];
+		}
+
+		//return null;
+	}, ["ACSR"], getRandom(0,1)),
+
+	new RegisterCommenter(function(value, register) {
+		// Bity ???, 1 (AIN1), 0 (AIN0)
+		/*
+		Bity:
+			0 - AIN0
+			1 - AIN1
+			???
+		*/
+
+		switch (value & 0b11) {
+			case 0b00:
+				return [
+					"zcela se povolí digitální vstup",
+					"digitální vstup se povolí"
+				][this.settings];
+			case 0b01:
+				return [ //TODO: This
+					"",
+					""
+				][this.settings];
+			case 0b10:
+				return [ //TODO: This
+					"",
+					""
+				][this.settings];
+			case 0b11:
+				return [
+					"zcela se zakáže digitální vstup",
+					"digitální vstup se zakáže"
+				][this.settings];
+		}
+
+		//return null;
+	}, ["DIDR1"], getRandom(0,1)),
+]
+
+//TODO: Move all mappings to Descriptor.js
+let registerMapping = {};
+for (let registerCommenter of registerCommenters) {
+	for (let register of registerCommenter.registers) {
+		if (register in registerMapping)
+			registerMapping[register].push(registerCommenter);
+		else
+			registerMapping[register] = [registerCommenter];
+	}
+}

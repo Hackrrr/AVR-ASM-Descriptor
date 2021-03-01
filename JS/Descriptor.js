@@ -121,34 +121,13 @@ class LineData {
 		this.#parsedOp = input[5] ? parseOps(splitOp(input[5])) : [];
 	}
 }
-class IntelligentCommenter extends Function {
-	// Bude to fungovat? Výbuch... Základ vzat z https://stackoverflow.com/a/36871498
-
+class IntelligentCommenter {
 	name = "";
 	instructions = [];
 	settings = 0;
+	generateComment = () => "";
 
 	constructor(commenter, instructions = [], name = "", settings = 0) {
-		super();
-
-		//commenter.name = name;
-		/*
-		Takovej problém... Funkce už mají property 'name', která je read-only...
-		Jako - Mohl bych přejmenovat tu property 'name' (tady u IntelligentCommenter classy), ale to je meh.
-		Radši jdu zdeformovat tu funkci ještě víc. LULW
-		*/
-
-		/*
-		A další problém - Proč myslíte, že voláme super()? No... Z nějakého důvodu 'this' ve wrapper funkci hlásí, že nejdříve máme volat 'super()'... No tak ho volám :)
-		Ale vážně - Nemám tušení, proč musím volat super - přeci to má být nová closure, když je to code block, ne?
-		A i kdyby se to nebralo jako další closure, tak se to nikdy nevolá v tomto scopu, takže stejně 'this' by mělo být něco jiného, než je tento znetvořený ctor LULW
-		Ke všemu ale funguje to, když odkazuju na 'this' v metodě (viz zakomentovaná 'shouldTry'), tak to funguje...
-		... ale to bych musel udělat ještě extení wrapper mimo classu a to je zase meh :)
-		
-		No tak to je důvod, proč zase ztrácíme výkon tím, že voláme super() jen pro to, aby jsme zase ukázali, že JS je nejlepší jazyk :)
-		BTW ten bind() call byl doplněn až poté, takže ten mě v tu chvíli netrápil (teda trápil - nefunguval a tak jsem ho odstranil (takže mě nakonec netrápil :) ))
-		*/
-
 		commenter = commenter.bind(this);
 
 		let wrapper = ((lineData, ...args) => {
@@ -163,11 +142,18 @@ class IntelligentCommenter extends Function {
 		this.name = name;
 		this.instructions = instructions;
 		this.settings = settings;
-		return Object.setPrototypeOf(wrapper, IntelligentCommenter.prototype);
-		/*
-		Máte ještě nějaké otázky? Třeba "Proč tady je to Object.setPrototypeOf(...)"?
-		No tak máte smůlu, protože já už mám debugování téhle classy dost :) (prostě JS eShrug)
-		*/
+		this.generateComment = wrapper;
+	}
+}
+class RegisterCommenter {
+	registers = [];
+	settings = 0;
+	generateComment = () => "";
+
+	constructor(commenter, registers, settings = 0) {
+		this.generateComment = commenter.bind(this);
+		this.registers = registers;
+		this.settings = settings;
 	}
 }
 class Predefined {
@@ -329,7 +315,7 @@ function getCommenter(instruction, selected) {
 
 function tryGenerateIntelligentComment(lineData, parsedCode, lineIndex) {
 	for (let commenter of intelligentCommenters) {
-			if (commenter(lineData, parsedCode, lineIndex))
+			if (commenter.generateComment(lineData, parsedCode, lineIndex))
 				return true;
 	}
 	return false;
@@ -342,4 +328,19 @@ function getPreviousSureLinedata(parsedCode, currentLineIndex) {
 		else if (lineData.label) return null;
 	}
 	return null;
+}
+
+function generateCommentForRegister(register, value) {
+	if (register in registerMapping) {
+		for (let registerCommenter of registerMapping[register]) {
+			let output = registerCommenter.generateComment(value, register);
+			if (output !== null)
+				return output
+		}
+	}
+	return false;
+}
+
+function firstLetterToUpperCase(str) {
+	return str[0].toUpperCase() + str.substring(1);
 }
