@@ -189,7 +189,7 @@ let operatorCheckOrder = [Operator_GeneralRegister, Operator_Number, Operator_In
 
 const OTHER_DATA = {
 	"INTERRUPT_TABLE_ADDRESSES": {
-		0x0000:	{name: "",			desc: "Reset"},
+		0x0000:	{name: "",			desc: "reset"},
 		0x0002:	{name: "INT0addr",	desc: "External Interrupt Request 0 (pin D2)"}, //TODO: This
 		0x0004:	{name: "INT1addr",	desc: "External Interrupt Request 1 (pin D3)"}, //TODO: This
 		0x0006:	{name: "PCI0addr",	desc: "Pin Change Interrupt Request 0 (pins D8 to D13)"}, //TODO: This
@@ -198,21 +198,21 @@ const OTHER_DATA = {
 		0x000C:	{name: "WDTaddr",	desc: "Watchdog Timeout Interrupt"}, //TODO: This
 		0x000E:	{name: "OC2Aaddr",	desc: "Timer/Counter2 Compare Match A"}, //TODO: This
 		0x0010:	{name: "OC2Baddr",	desc: "Timer/Counter2 Compare Match B"}, //TODO: This
-		0x0012:	{name: "OVF2addr",	desc: "Přetečení časovače/čítače 2"},
+		0x0012:	{name: "OVF2addr",	desc: "přetečení časovače/čítače 2"},
 		0x0014:	{name: "ICP1addr",	desc: "Timer/Counter1 Capture Event"}, //TODO: This
 		0x0016:	{name: "OC1Aaddr",	desc: "Timer/Counter1 Compare Match A"}, //TODO: This
 		0x0018:	{name: "OC1Baddr",	desc: "Timer/Counter1 Compare Match B"}, //TODO: This
-		0x001A:	{name: "OVF1addr",	desc: "Přetečení časovače/čítače 1"},
+		0x001A:	{name: "OVF1addr",	desc: "přetečení časovače/čítače 1"},
 		0x001C:	{name: "OC0Aaddr",	desc: "Timer/Counter0 Compare Match A"}, //TODO: This
 		0x001E:	{name: "OC0Baddr",	desc: "Timer/Counter0 Compare Match B"}, //TODO: This
-		0x0020:	{name: "OVF0addr",	desc: "Přetečení časovače/čítače 0"},
+		0x0020:	{name: "OVF0addr",	desc: "přetečení časovače/čítače 0"},
 		0x0022:	{name: "SPIaddr",	desc: "SPI Serial Transfer Complete"}, //TODO: This
 		0x0024:	{name: "URXCaddr",	desc: "USART, Rx Complete"}, //TODO: This
 		0x0026:	{name: "UDREaddr",	desc: "USART, Data Register Empty"}, //TODO: This
 		0x0028:	{name: "UTXCaddr",	desc: "USART, Tx Complete"}, //TODO: This
-		0x002A:	{name: "ADCCaddr",	desc: "ADC Conversion Complete"}, //TODO: This
+		0x002A:	{name: "ADCCaddr",	desc: "dokončen převod ADC převodníku"},
 		0x002C:	{name: "ERDYaddr",	desc: "READY EEPROM Ready"}, //TODO: This
-		0x002E:	{name: "ACIaddr",	desc: "Změna stavu analogového komparátoru"},
+		0x002E:	{name: "ACIaddr",	desc: "změna stavu analogového komparátoru"},
 		0x0030:	{name: "TWIaddr",	desc: "2-wire Serial Interface (I2C)"}, //TODO: This
 		0x0032:	{name: "SPMRaddr",	desc: "Store Program Memory Ready"}, //TODO: This
 	}
@@ -225,8 +225,12 @@ const predefinedArray = [
 	new Predefined("SPL"),
 	new Predefined("SPH"),
 
+	new Predefined("DDRA"),
+	new Predefined("PORTA"),
 	new Predefined("DDRB"),
 	new Predefined("PORTB"),
+	new Predefined("DDRC"),
+	new Predefined("PORTC"),
 	new Predefined("DDRD"),
 	new Predefined("PORTD"),
 
@@ -238,8 +242,26 @@ const predefinedArray = [
 	new Predefined("TCNT0"),
 
 
-	// Analogový/Digitální komparátor
+	// Analogový/Digitální komparátor/převodník
+	new Predefined("ADCSRA", "ADC Control Status Register A"),
+	new Predefined("ADPS0", "ADC Prescaler Select 0", 0),
+	new Predefined("ADPS1", "ADC Prescaler Select 1", 1),
+	new Predefined("ADPS2", "ADC Prescaler Select 2", 2),
+	new Predefined("ADIE", "ADCC Interrupt Enable", 3),
+	new Predefined("ADIF", "ADC Interrupt Flag", 4),
+	new Predefined("ADATE", "ADC Auto Trigger Enable", 5),
+	new Predefined("ADSC", "ADC Start Conversion", 6),
+	new Predefined("ADEN", "ADC Enable", 7),
+
 	new Predefined("ADCSRB", "ADC Control Status Register B"),
+	new Predefined("ADTS0", "AD Trigger Select", 0),
+	new Predefined("ADTS1", "AD Trigger Select", 1),
+	new Predefined("ADTS2", "AD Trigger Select", 2),
+	new Predefined("ACME", "AC Multiplexer Enable", 6),
+
+	new Predefined("ADCH"),
+	new Predefined("ADCL"),
+
 	new Predefined("DIDR1"),
 
 	new Predefined("ACSR", "Analog Comparator Control Status Register"),
@@ -289,7 +311,6 @@ let predefinedFunctionMapping = {
 };
 
 
-//TODO: Instrukce movw, .cseg, .db
 /*
 Normální komentátor:
 (operátory, splittedLine) => comment
@@ -525,6 +546,14 @@ const instructionData = {
 		}
 	],
 	"rcall": [
+		(op) => {
+			return "Umístění hodnoty PC do zásobníku + " + (op[0] instanceof Operator_Label ? `(Relativní) skok na návěstí "${op[0]}"` : `Relativní skok o ${op[0]}`);
+		},
+		(op) => {
+			return (op[0] instanceof Operator_Label ? `Skočí se na návěstí "${op[0]}"` : `Skočí se o ${op[0]}`) + " a současná adresa se uloží do zásobníku";
+		}
+	],
+	"call": [
 		(op) => {
 			return "Umístění hodnoty PC do zásobníku + " + (op[0] instanceof Operator_Label ? `(Relativní) skok na návěstí "${op[0]}"` : `Relativní skok o ${op[0]}`);
 		},
@@ -848,6 +877,25 @@ const intelligentCommenters = [
 		return false;
 	}, ["rjmp", "jmp"], "Interupt table jump", getRandom(0,3)),
 
+	/*
+	Pozn.:
+		Tento komntátor není 100 % přesný...
+		A ne - Nelze ho udělat 100 % (alespoň pokud nechci z tohoto projektu udělat statický anylyzátor kódu)
+		Proč? Protože tento komentátor hledá dosazovanou hodnotu:
+			1. Jez z přechozí řádky (kde se nachází instrukce (tzn. přeskakuje prázdné řádky nebo řádky, kde je jen komentář))
+			2. Bere v potaz jen návěstí (tzn. pokud je mezi předchozí instrukcí a touto instrukcí návěstí, tak komentář negeneruje)
+		Ani jedno z těchto věcí není důvod, proč se může plést - Oba radši NEvygenerují komentář, než aby vygenerovali špatně
+		Problém je, že tu chybí ještě jedna věc - A to, že můžeme skákat i bez návěstí. Př:
+
+			ldi r16, 0b10000111
+			nejake_navesti:
+				sts ADCSRA, r16
+			jmp nejake_navesti
+		
+		Zde nastane bod 2 - Tedy komentátor zjistí, že se mezi instrukcemi sts a ldi nachází návestí, tudíž je předpoklad toho, že se bude skákat na toto návestí a proto nelze jistě zjistit hodnotu
+		Ale instrukce jmp může brát i číslo/adresu, na kterou se má skočit - A komentátor nedokáže poznat, zda se někde v kódu nachází takovýto skok a pokud zde návestí nebude, tak hodnotu u ldi instrukce bude brát jako jistou a vygeneruje (potenciálně) chybný komentář
+		(nehledě na to, že by se musela dopočítat skutečná adresa všech instrukcí)
+	*/
 	new IntelligentCommenter(function(lineData, parsedCode, lineIndex) {
 		// Jedná se o přiřatení do registru?
 		if (!(lineData.operators[0] instanceof Operator_GeneralRegister || lineData.operators[0] instanceof Operator_Predefined))
@@ -861,97 +909,263 @@ const intelligentCommenters = [
 		// Dokážeme zjistit, kterou hodnotu dosazujeme? (+ ji případně odvodit)
 		let prev;
 		let value = 0;
+		let originalValue = "";
 		if (lineData.operators[1] instanceof Operator_GeneralRegister) {
 			prev = getPreviousSureLinedata(parsedCode, lineIndex);
 			if (prev.instruction == "ldi" && prev.operators[1] instanceof Operator_Number) {
-				value = prev.operators[1].value;	
+				value = prev.operators[1].value;
+				originalValue = prev.operators[1].originalValue;	
 			}
 		} else if (lineData.operators[1] instanceof Operator_Number) {
 			value = lineData.operators[1].value;
+			originalValue = prev.operators[1].originalValue;	
 		} else if (lineData.operators[1] instanceof Operator_Predefined) {
 			value = lineData.operators[1].getPredefined()?.value;
 			if (value === null)
 				return false;
+			originalValue = prev.operators[1].originalValue;	
 		} else {
 			return false;
 		}
-		
-		let registerComment = generateCommentForRegister(register, value);
-		if (registerComment === false)
+
+
+		// Generace komentáře
+		let comment = generateCommentForRegisterFullValue(register, value);
+		if (comment === null)
 			return false;
 		
+
+		// Případné odstranění komenátře na předchozí řádce
 		if ((this.settings & 2) == 0 && lineData.operators[1] instanceof Operator_GeneralRegister) {
 			prev.generatedComment = "";
 			prev.processed = true;
 		}
 
+		// Dosazení komentářů
 		lineData.processed = true;
 		if (value === 0)
 			lineData.generatedComment = [
-				`Registr ${register} se vynuluje, tudíž ${registerComment}`,
-				`${firstLetterToUpperCase(registerComment)}, protože se všechny bity registru ${register} nastaví na 0`
+				`Registr ${register} se vynuluje, tudíž ${comment}`,
+				`${firstLetterToUpperCase(comment)}, protože se všechny bity registru ${register} nastaví na 0`
 			][(this.settings & 4) >> 2];
 		else
 			lineData.generatedComment = [
-				`Do registru ${register} se uloží hodnota '${value}', tudíž ${registerComment}`,
-				`${firstLetterToUpperCase(registerComment)}, protože se hodnota '${value}' zapíše do registru ${register}`
+				`Do registru ${register} se uloží hodnota '${originalValue}', tudíž ${comment}`,
+				`${firstLetterToUpperCase(comment)}, protože se hodnota '${originalValue}' zapíše do registru ${register}`
 			][this.settings & 1];
 
 		return true;
-	}, ["ldi", "sts", "out"], "Register Commenters", getRandom(0,7)),
+	}, ["ldi", "sts", "out"], "Register Commenters Full Value", getRandom(0,7)),
+
+
+	new IntelligentCommenter(function(lineData, parsedCode, lineIndex) {
+		if (lineData.operators[0] instanceof Operator_Number)
+			return;
+		let register = lineData.operators[0] instanceof Operator_GeneralRegister ? lineData.operators[0].register : lineData.operators[0].name;
+		let bit = lineData.operators[1].value;
+		let value = ["sbi", "sbr"].includes(lineData.instruction);
+
+		let comment = generateCommentForRegisterSingleBit(register, bit, value);
+		if (comment === null)
+			return null;
+	
+		lineData.processed = true;
+		if (value)
+			lineData.generatedComment = [
+				`Nastaví se ${bit}. v registru ${register}, tudíž ${comment}`,
+				`${firstLetterToUpperCase(comment)}, protože se hodnota bitu ${bit} v registru ${register} nastaví na 1`
+			][(this.settings & 2) >> 1];
+		else
+			lineData.generatedComment = [
+				`Vymaže se ${bit}. v registru ${register}, tudíž ${comment}`,
+				`${firstLetterToUpperCase(comment)}, protože se hodnota bitu ${bit} v registru ${register} nastaví na 0`
+			][this.settings & 1];
+
+		return true;
+	}, ["sbi", "sbr", "cbi", "cbr"], "Register Commenters Single Bit", getRandom(0,3)),
 ];
 
 
 /*
-Register komentátor:
-(value)
+Full value register komentátor (1.):
+(value, register) => ""
 value			- Hodnota, která se umístí do registru
 register		- Registr, pro který je požadován komentář
 				(protože pokud je daný komentáror pro více registrů, tak nelze poznat, o jaký se zrovna jedná)
 
-Vrací vygenerovaný komentář jako string, případně null pokud vygenerovat nelze
+Single bit register komentátor (2.):
+(bit, value, register) => ""
+bit				- Číslo bitu, který se mění (indexujeme od 0)
+value			- True/False - Určuje, zda se bit nastaví na 1 (= true) nebo na 0 (= false)
+register		- Registr, pro který je požadován komentář
+				(protože pokud je daný komentáror pro více registrů, tak nelze poznat, o jaký se zrovna jedná)
+
+Oba vrací vygenerovaný komentář jako string, případně null pokud vygenerovat nelze.
 Komentář by neměl mít velké písmeno na začátku, pokud se nejedná např. o zkratku:
 	Správně:	záporný stav komparátoru bude brán z multiplexoru
 	Špatně:		Záporný stav komparátoru bude brán z multiplexoru
 
-new RegisterCommenter(function(value) {
-	return "";
-}, [""])
+
+new RegisterCommenter(
+	function(value, register) {
+		return null;
+	},
+	function(bit, value, register) {
+		switch (bit) {
+			case 0:
+				break;
+			case 1:
+				break;
+			case 2:
+				break;
+			case 3:
+				break;
+			case 4:
+				break;
+			case 5:
+				break;
+			case 6:
+				break;
+			case 7:
+				break;
+		}
+		return null;
+	},
+	[""],
+	{
+		fullValue: getRandom(0,1),
+		singleBit: getRandom(0,1)
+	}
+),
+
+Nastavení nemusí být object, ale pro oddělení nastavení je to lepší udělat takto...
 
 POZOR! Nelze použít arrow funkce:
 	Tohle je JS. Pozor na scoping! Nelze napsat '(lineData, parsedCode, lineIndex) => { ... }', jelikož pak nelze přistupovat k vlastnostem IntelligentCompleteru.
 	Argument 'commenter' musí mít "vlastní" scope - pokud použijeme arrow funkci, scopem bude global scope (= window).
 */
 const registerCommenters = [
-	new RegisterCommenter(function(value, register) {
+	new RegisterCommenter_SingleBitOnly(
 		/*
-		ADC Control and Status register B
+		ADCSRA - ADC Control and Status register A
 		Bity:
-			0 - ADTS0							MISSING
-			1 - ADTS1							MISSING
-			2 - ADTS2							MISSING
-			6 - ACME; AC multiplexor enable?
+			0 - ADPS0; ADC Prescaler Select 0
+			1 - ADPS1; ADC Prescaler Select 1
+			2 - ADPS2; ADC Prescaler Select 2
+			3 - ADIE; ADCC Interrupt Enable
+			4 - ADIF; ADC Interrupt Flag
+			5 - ADATE; ADC Auto Trigger Enable
+			6 - ADSC; ADC Start Conversion
+			7 - ADEN; ADC Enable
 		*/
 
-		
-		if (value & 0b0100_0000) { // Bit 6
-			return [
-				"záporný stav komparátoru bude brán z multiplexoru",
-				"multiplexor bude brán jako záporný stav komparátoru"
-			][this.settings];
-		} else {
-			return [
-				"záporný stav komparátoru bude brán z pinu AIN1",
-				"pin AIN1 bude brán jako záporný stav komparátoru"
-			][this.settings];
+		function(bit, value, register) {
+			switch (bit) {
+				case 0:
+					break;
+				case 1:
+					break;
+				case 2:
+					break;
+				case 3:
+					return (value ? [
+						"povolí se přerušení z A/D převodníku",
+						"přerušení se povolí"
+					] : [
+						"zabrání se přerušením z A/D převodníku",
+						"přerušení se zakáží"
+					])[(this.settings.singleBit & 16) >> 4];
+				case 4:
+					return (value ? [
+						"nastaví se příznak přerušení",
+						"příznak přerušení se nastaví"
+					] : [
+						"zruší se příznak přerušení",
+						"příznak přerušení se vynuluje"
+					])[(this.settings.singleBit & 8) >> 3];
+				case 5:
+					return (value ? [
+						"povolí se automatické zahájení převodu",
+						"automatický převod se povolí"
+					] : [
+						"zakáže se automatické zahájení převodu",
+						"automatický převod se zakáže"
+					])[(this.settings.singleBit & 4) >> 2];
+				case 6:
+					return (value ? [
+						"zahájí se převod",
+						"A/D převodník začne převod"
+					] : [
+						"ukončení převodu", // IDK jestli to funguje takhle... Pravděpodobně tohle stejně nikdy nenastane... (single bit dosazení nuly)
+						"A/D převodník zruší převod"
+					])[(this.settings.singleBit & 2) >> 1];
+				case 7:
+					return (value ? [
+						"A/D převodník se zapne",
+						"zapne se A/D převodník"
+					] : [
+						"A/D převodník se vypne",
+						"vypne se A/D převodník"
+					])[this.settings.singleBit & 1];
+			}
+			return null;
+		},
+		["ADCSRA"],
+		{
+			//fullValue: getRandom(0,1),
+			singleBit: getRandom(0,31)
 		}
+	),
 
-		//return null;
-	}, ["ADCSRB"], getRandom(0,1)),
-
-	new RegisterCommenter(function(value, register) {
-		// Bity 7 (ACD), 6 (ACBG), 5 (ACO; AC output), 4 (ACI; AC interrupt (příznak)), 3 (ACIE; AC interrutp enable), 2 (ACIC), 1 (ACIS1), 0 (ACIS0)
+	new RegisterCommenter(
 		/*
+		ADCSRB - ADC Control and Status register B
+		Bity:
+			0 - ADTS0; AD Trigger Select
+			1 - ADTS1; AD Trigger Select
+			2 - ADTS2; AD Trigger Select
+			6 - ACME; AC Multiplexer Enable
+		*/
+		function(value, register) {
+
+			
+			if (value & 0b0100_0000) { // Bit 6
+				return [
+					"záporný stav komparátoru bude brán z multiplexoru",
+					"multiplexor bude brán jako záporný stav komparátoru"
+				][this.settings.fullValue];
+			} else {
+				return [
+					"záporný stav komparátoru bude brán z pinu AIN1",
+					"pin AIN1 bude brán jako záporný stav komparátoru"
+				][this.settings.fullValue];
+			}
+
+			//return null;
+		},
+		function(bit, value, register) {
+			switch (bit) {
+				case 6:
+					return (value ? [
+							"záporný stav komparátoru bude brán z multiplexoru",
+							"multiplexor bude brán jako záporný stav komparátoru"
+						] : [
+							"záporný stav komparátoru bude brán z pinu AIN1",
+							"pin AIN1 bude brán jako záporný stav komparátoru"
+						])[this.settings.singleBit];
+			}
+			return null;
+		},
+		["ADCSRB"],
+		{
+			fullValue: getRandom(0,1),
+			singleBit: getRandom(0,1)
+		}
+	),
+
+	new RegisterCommenter(
+		/*
+		ADCR
 		Bity:
 			0 - ACIS0; AC interrupt něco
 			1 - ACIS1; AC interrupt něco
@@ -962,56 +1176,206 @@ const registerCommenters = [
 			6 - ACBG
 			7 - ACD
 		*/
+		function(value, register) {
 
-		if (value & 0b0000_1000) { // Bit 3
-			return [
-				"přerušení z komparátoru jsou povolena",
-				"povolí se přerušení z komparátoru"
-			][this.settings];
-		} else {
-			return [
-				"přerušení z komparátoru jsou zakázána",
-				"zakáží se přerušení z komparátoru"
-			][this.settings];
+			if (value & 0b0000_1000) { // Bit 3
+				return [
+					"přerušení z komparátoru jsou povolena",
+					"povolí se přerušení z komparátoru"
+				][this.settings.fullValue];
+			} else {
+				return [
+					"přerušení z komparátoru jsou zakázána",
+					"zakáží se přerušení z komparátoru"
+				][this.settings.fullValue];
+			}
+
+			//return null;
+		},
+		function(bit, value, register) {
+			switch (bit) {
+				case 3:
+					return (value ? [
+							"přerušení z komparátoru jsou povolena",
+							"povolí se přerušení z komparátoru"
+						] : [
+							"přerušení z komparátoru jsou zakázána",
+							"zakáží se přerušení z komparátoru"
+						])[this.settings.singleBit];
+			}
+			return null;
+		},
+		["ACSR"],
+		{
+			fullValue: getRandom(0,1),
+			singleBit: getRandom(0,1)
 		}
+	),
 
-		//return null;
-	}, ["ACSR"], getRandom(0,1)),
-
-	new RegisterCommenter(function(value, register) {
-		// Bity ???, 1 (AIN1), 0 (AIN0)
+	new RegisterCommenter_SingleBitOnly(
 		/*
+		ADMUX - ADC Multiplexer Selection Register
 		Bity:
-			0 - AIN0
-			1 - AIN1
-			???
+			0 - MUX0
+			1 - MUX1
+			2 - MUX2
+			3 - MUX3
+			5 - ADLAR;  ADC Left Adjust Result
+			6 - REFS0; (Voltage) Reference Selection 0
+			7 - REFS1; (Voltage) Reference Selection 1
 		*/
-
-		switch (value & 0b11) {
-			case 0b00:
-				return [
-					"zcela se povolí digitální vstup",
-					"digitální vstup se povolí"
-				][this.settings];
-			case 0b01:
-				return [ //TODO: This
-					"",
-					""
-				][this.settings];
-			case 0b10:
-				return [ //TODO: This
-					"",
-					""
-				][this.settings];
-			case 0b11:
-				return [
-					"zcela se zakáže digitální vstup",
-					"digitální vstup se zakáže"
-				][this.settings];
+		function(bit, value, register) {
+			switch (bit) {
+				case 0:
+					return "";
+				case 1:
+					return "";
+				case 2:
+					return "";
+				case 3:
+					return "";
+				case 5:
+					return (value ? [
+						`výsledek převodu bude v registrech ADCH a ADCL zarovnán doleva`,
+						`v registrech se výsledek zarovná vlevo`
+					] : [
+						`výsledek převodu bude v registrech ADCH a ADCL zarovnán doprava`,
+						`v registrech se výsledek zarovná vpravo`
+					])[this.settings.singleBit];
+				case 6:
+					return "";
+				case 7:
+					return "";
+			}
+			return null;
+		},
+		["ADMUX"],
+		{
+			fullValue: getRandom(0,1),
+			singleBit: getRandom(0,1)
 		}
+	),
 
-		//return null;
-	}, ["DIDR1"], getRandom(0,1)),
+	new RegisterCommenter(
+		function(value, register) {
+			// Bity ???, 1 (AIN1), 0 (AIN0)
+			/*
+			Bity:
+				0 - AIN0
+				1 - AIN1
+				???
+			*/
+
+			switch (value & 0b11) {
+				case 0b00:
+					return [
+						"zcela se povolí digitální vstup",
+						"digitální vstup se povolí"
+					][this.settings.fullValue];
+				case 0b01:
+					return [ //TODO: This
+						"",
+						""
+					][this.settings.fullValue];
+				case 0b10:
+					return [ //TODO: This
+						"",
+						""
+					][this.settings.fullValue];
+				case 0b11:
+					return [
+						"zcela se zakáže digitální vstup",
+						"digitální vstup se zakáže"
+					][this.settings.fullValue];
+			}
+
+			//return null;
+		},
+		function(bit, value, register) {
+			switch (bit) {
+				case 0:
+				case 1:
+				case 2:
+				case 3:
+					//Pravděpodobně nikdy nebude chtít nastavovat přes "single bit" operace, jelikož tyhle 4 bity závisí na sobě...
+					return null;
+			}
+			return null;
+		},
+		["DIDR1"],
+		{
+			fullValue: getRandom(0,1),
+			singleBit: getRandom(0,1)
+		}
+	),
+
+	new RegisterCommenter(
+		function(value, register) {
+			let bits = getBitList(value);
+			let port = "PORT" + register.substr(-1);
+
+			if (bits.on.length == 1 || bits.off.length == 1) {
+				return (bits.on.length == 1 ? [
+					`port ${port} bude mít ${bits.on[0]}. bit nastaven jako výstupní`,
+					`bit ${bits.on[0]} bude na portu ${port} výstupní`
+				] : [
+					`port ${port} bude mít ${bits.off[0]}. bit nastaven jako vstupní`,
+					`bit ${bits.off[0]} bude na portu ${port} vstupní`
+				])[this.settings.fullValue & 1];
+			}
+
+			if (value === 0) {
+				return [
+					`port ${port} bude mít všechny bity jako vstupní`,
+					`všechny bity portu ${port} budou vstupní`
+				][(this.settings.fullValue & 2) >> 1];
+			} else if (value === 0xFF) {
+				return [
+					`port ${port} bude mít všechny bity jako výstupní`,
+					`všechny bity portu ${port} budou výstupní`
+				][(this.settings.fullValue & 4) >> 2];
+			} else {
+				return [
+					`port ${port} bude mít ${humanJoin(bits.on, "., ", ". a ")}. bit nastaven jako výstupní a ${humanJoin(bits.off, "., ", ". a ")} bit jako vstupní`,
+					`bity ${humanJoin(bits.on)} portu ${port} budou výstupní a bity ${humanJoin(bits.off)} jako vstupní`
+				][(this.settings.fullValue & 8) >> 3];
+			}
+		},
+		function(bit, value, register) {
+			let port = "PORT" + register.substr(-1);
+			return (value ? [
+				`port ${port} bude mít ${bit}. bit nastaven jako výstupní`,
+				`bit ${bit} bude na portu ${port} výstupní`
+			] : [
+				`port ${port} bude mít ${bit}. bit nastaven jako vstupní`,
+				`bit ${bit} bude na portu ${port} vstupní`
+			])[this.settings.fullValue & 1];
+		},
+		["DDRA", "DDRB", "DDRC", "DDRD"],
+		{
+			fullValue: getRandom(0,15),
+			singleBit: getRandom(0,1)
+		}
+	),
+
+	// new RegisterCommenter(
+	// 	function(value, register) {
+	// 		return [
+	// 			`na výstpuní port ${register} se pošle hodnota `
+	// 		]
+	// 	},
+	// 	function(bit, value, register) {
+	// 		switch (bit) {
+	
+	// 		}
+	// 		return null;
+	// 	},
+	// 	["PORTA", "PORTB", "PORTC", "PORTD"],
+	// 	{
+	// 		fullValue: getRandom(0,1),
+	// 		singleBit: getRandom(0,1)
+	// 	}
+	// ),
 ]
 
 //TODO: Move all mappings to Descriptor.js

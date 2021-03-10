@@ -121,7 +121,7 @@ class LineData {
 		this.#parsedOp = input[5] ? parseOps(splitOp(input[5])) : [];
 	}
 }
-class IntelligentCommenter {
+class IntelligentCommenter { //TODO: README.md ohledně změny struktury classy - Resp. že teď už to reálně classa je :)
 	name = "";
 	instructions = [];
 	settings = 0;
@@ -131,7 +131,7 @@ class IntelligentCommenter {
 		commenter = commenter.bind(this);
 
 		let wrapper = ((lineData, ...args) => {
-			if (this.instructions.length == 0 || this.instructions.includes(lineData.instruction))
+			if (this.instructions.length == 0 || this.instructions.includes(lineData.instruction.toLowerCase()))
 				return commenter(lineData, ...args);
 			else
 				return false;
@@ -145,13 +145,55 @@ class IntelligentCommenter {
 		this.generateComment = wrapper;
 	}
 }
-class RegisterCommenter {
+class RegisterCommenter { //TODO: README.md ohledně tohohle
 	registers = [];
 	settings = 0;
-	generateComment = () => "";
 
-	constructor(commenter, registers, settings = 0) {
-		this.generateComment = commenter.bind(this);
+	generateFullValueComment(...args) {
+		return this.#fullValueCommneter == null ? null : (this.#fullValueCommneter(...args) ?? null)
+	}
+	generateSingleBitComment(...args) {
+		return this.#singleBitCommneter == null ? null : (this.#singleBitCommneter(...args) ?? null)
+	}
+
+	#fullValueCommneter = null;
+	#singleBitCommneter = null;
+
+	constructor(fullValueCommenter, singleBitCommneter, registers, settings = 0) {
+		this.#fullValueCommneter = fullValueCommenter?.bind(this);
+		this.#singleBitCommneter = singleBitCommneter?.bind(this);
+		this.registers = registers;
+		this.settings = settings;
+	}
+}
+class RegisterCommenter_SingleBitOnly {
+	registers = [];
+	settings = 0;
+
+	generateFullValueComment(...args) {
+		return this.#fullValueCommneter == null ? null : (this.#fullValueCommneter(...args) ?? null)
+	}
+	generateSingleBitComment(...args) {
+		return this.#singleBitCommneter == null ? null : (this.#singleBitCommneter(...args) ?? null)
+	}
+
+	#fullValueCommneter = null;
+	#singleBitCommneter = null;
+
+	constructor(singleBitCommneter, registers, settings = 0) {
+		let fullValueCommenter = function(value, register) {
+			let bits = getBitList(value);
+			let comments = [];
+			for (let bit of bits.on)
+				comments.push(this.generateSingleBitComment(bit, 1, register));
+			comments = comments.filter((value) => value !== null && value !== "");
+			if (comments.length == 0)
+				return null;
+			else
+				return humanJoin(comments);
+		}
+		this.#fullValueCommneter = fullValueCommenter?.bind(this);
+		this.#singleBitCommneter = singleBitCommneter?.bind(this);
 		this.registers = registers;
 		this.settings = settings;
 	}
@@ -185,7 +227,7 @@ class Operator_Unknown extends Operator {
 	constructor(value) {super(value);}
 }
 
-
+//TODO: Roztřídit všechny funkce, asi vytvořit něco jako Utils.js - Tohle je bordel, každá funkce má jiný styl, nepřehledný, naházený na sobě...
 const splitLine = (x) => {
 	/*
 	OLD:
@@ -314,6 +356,7 @@ function getCommenter(instruction, selected) {
 }
 
 function tryGenerateIntelligentComment(lineData, parsedCode, lineIndex) {
+	if (lineData.instruction === undefined) return false;
 	for (let commenter of intelligentCommenters) {
 			if (commenter.generateComment(lineData, parsedCode, lineIndex))
 				return true;
@@ -330,17 +373,52 @@ function getPreviousSureLinedata(parsedCode, currentLineIndex) {
 	return null;
 }
 
-function generateCommentForRegister(register, value) {
+function generateCommentForRegisterFullValue(register, value) {
 	if (register in registerMapping) {
 		for (let registerCommenter of registerMapping[register]) {
-			let output = registerCommenter.generateComment(value, register);
+			let output = registerCommenter.generateFullValueComment(value, register);
 			if (output !== null)
-				return output
+				return output;
 		}
 	}
-	return false;
+	return null;
+}
+function generateCommentForRegisterSingleBit(register, bit, value) {
+	if (register in registerMapping) {
+		for (let registerCommenter of registerMapping[register]) {
+			let output = registerCommenter.generateSingleBitComment(bit, value, register);
+			if (output !== null)
+				return output;
+		}
+	}
+	return null;
 }
 
 function firstLetterToUpperCase(str) {
-	return str[0].toUpperCase() + str.substring(1);
+	return str.length > 0 ? str[0].toUpperCase() + str.substring(1) : str;
+}
+
+
+function isPowerOf2(value) {
+	return value && (value & value - 1);
+}
+function getSetBit(value) { // Indexujeme od 0
+	return isPowerOf2(value) ? Math.log2(value) : null;
+}
+function getBitList(value, bitsize = 8) { // Indexujeme od 0
+	let output = { // Pozice jsou od největšího po nejmenší
+		on: [],
+		off: []
+	};
+	let x = bitsize; // Jen tak pro radost...
+	while (x--) {
+		if (value & (1 << x))
+			output.on.push(x);
+		else
+			output.off.push(x);
+	}
+	return output;
+}
+function humanJoin(arr, join = ", ", lastJoin = " a ") {
+	return arr.length > 1 ? arr.slice(0, -1).join(join) + lastJoin + arr[arr.length - 1] : arr.join("");
 }

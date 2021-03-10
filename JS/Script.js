@@ -2,6 +2,7 @@ let input, output, toastEl, toastTimeoutID, loadedFileName = "", formatter, comm
 
 //TODO: "Používáme sušenky" alert :)
 //TODO: Migrate to Local Storage API? (a tedy "ukládáme soubory" alert :) )
+//TODO: Save settings register komentátorů
 temp = getCookie("formatter");
 formatter = new Formatter(temp == "" ? {} : JSON.parse(temp));
 temp = getCookie("commentRules"); //TODO: Fix error on added instrucion if selected was saved...
