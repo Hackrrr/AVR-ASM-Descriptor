@@ -141,36 +141,46 @@ class Operator_Predefined extends Operator {
 	static validator = value => value.toUpperCase() in predefinedMapping;
 	name = "";
 	get comparableValue() {
-		return this.name;
+		return this.name.toUpperCase();
+	}
+	get value() {
+		return this.getPredefined()?.value ?? null;
 	}
 	constructor(value) {
 		super(value);
 		this.name = value;
 	}
 	getPredefined() {
-		return predefinedMapping[this.name] ?? null;
+		return predefinedMapping[this.name.toUpperCase()] ?? null;
 	}
 }
-class Operator_ModifiedPredefined extends Operator { //TODO: Derivovat z Operator_Predefined (aby se nemuseli psát zbytečné případy pro Operator_ModifiedPredefined)
-	static validator = value => {
-		let match = value.match(/^(\w+)\(.+\)$/);
-		return match !== null && match[1] in predefinedFunctionMapping;
+class Operator_Modified extends Operator {
+	static validator = function(value) {
+		for (let modifier of modifiers) {
+			let parserOutput = modifier.parse(value);
+			if (parserOutput !== null)
+				return {
+					value: value,
+					modifier: modifier,
+					parsed: parserOutput
+				};
+		}
+		return false;
 	};
 
-	name = "";
-	child = null;
+	modifier = null;
+	childs = [];
+	value = null;
+	
 	get comparableValue() {
-		return this.name + "(" + this.child?.comparableValue + ")";
+		return this.value ?? this.originalValue;
 	}
-	constructor(value) {
-		super(value);
-		let match = value.match(/^(\w+)\((.+)\)$/);
-		this.name = match[1];
-		this.child = parseOperator(match[2]);
-	}
-	getPredefined() {
-		let childValue = this.child.getPredefined();
-		return (childValue === undefined || childValue === null) ? null : predefinedFunctionMapping[this.name](childValue);
+
+	constructor(validatorOutput) {
+		super(validatorOutput.value);
+		this.modifier = validatorOutput.modifier;
+		this.childs = parseOps(validatorOutput.parsed);
+		this.value = this.modifier.resolve(this.childs);
 	}
 }
 class Operator_Label extends Operator {
@@ -184,7 +194,7 @@ class Operator_Label extends Operator {
 		this.value = value;
 	}
 }
-let operatorCheckOrder = [Operator_GeneralRegister, Operator_Number, Operator_IndirectRegister, Operator_Predefined, Operator_String, Operator_RegisterRange, Operator_ModifiedPredefined, Operator_Label];
+let operatorCheckOrder = [Operator_GeneralRegister, Operator_Number, Operator_IndirectRegister, Operator_Predefined, Operator_String, Operator_RegisterRange, Operator_Modified, Operator_Label];
 
 
 const OTHER_DATA = {
@@ -226,24 +236,46 @@ const predefinedArray = [
 	new Predefined("SPH"),
 
 	new Predefined("DDRA"),
-	new Predefined("PORTA"),
 	new Predefined("DDRB"),
-	new Predefined("PORTB"),
 	new Predefined("DDRC"),
-	new Predefined("PORTC"),
 	new Predefined("DDRD"),
+	new Predefined("PORTA"),
+	new Predefined("PORTB"),
+	new Predefined("PORTC"),
 	new Predefined("PORTD"),
 
-	new Predefined("PINB0"),
-
 	// Časovače/Čítače
-	new Predefined("TCCR0B"),
+	new Predefined("TCCR0A", "Timer/Counter 0 Control Register A"),
+	new Predefined("WGM00", "Wave Generation Mode 0", 0),
+	new Predefined("WGM01", "Wave Generation Mode 0", 1),
+	new Predefined("COM0B0", "Compare Match Output B Mode 0", 4),
+	new Predefined("COM0B1", "Compare Match Output B Mode 1", 5),
+	new Predefined("COM0A0", "Compare Match Output A Mode 0", 6),
+	new Predefined("COM0A1", "Compare Match Output A Mode 1", 7),
+
+	new Predefined("TCCR0B", "Timer/Counter 0 Control Register B"),
+	new Predefined("CS00", "Clock Select 0", 0),
+	new Predefined("CS01", "Clock Select 1", 1),
+	new Predefined("CS02", "Clock Select 2", 2),
+	new Predefined("WGM02", "Wave Generation Mode 2", 3),
+	new Predefined("FOC0B", "", 6),
+	new Predefined("FOC0A", "", 7),
+
 	new Predefined("TIMSK0"),
 	new Predefined("TCNT0"),
 
 
-	// Analogový/Digitální komparátor/převodník
-	new Predefined("ADCSRA", "ADC Control Status Register A"),
+	// AD + ADC
+	new Predefined("ADMUX"),
+	new Predefined("MUX0", "", 0),
+	new Predefined("MUX1", "", 1),
+	new Predefined("MUX2", "", 2),
+	new Predefined("MUX3", "", 3),
+	new Predefined("ADLAR", "ADC Left Adjust Result", 5),
+	new Predefined("REFS0", "(Voltage) Reference Selection 0", 6),
+	new Predefined("REFS1", "(Voltage) Reference Selection 1", 7),
+
+	new Predefined("ADCSRA", "AD Control Status Register A"),
 	new Predefined("ADPS0", "ADC Prescaler Select 0", 0),
 	new Predefined("ADPS1", "ADC Prescaler Select 1", 1),
 	new Predefined("ADPS2", "ADC Prescaler Select 2", 2),
@@ -262,10 +294,24 @@ const predefinedArray = [
 	new Predefined("ADCH"),
 	new Predefined("ADCL"),
 
-	new Predefined("DIDR1"),
 
-	new Predefined("ACSR", "Analog Comparator Control Status Register"),
-	new Predefined("ACO", "AC výstup", 5),
+	new Predefined("ACSR", "AC Control Status Register"),
+	new Predefined("ACIS0", "AC Interrupt Select 0", 0),
+	new Predefined("ACIS1", "AC Interrupt Select 1", 1),
+	new Predefined("ACIC", "", 2),
+	new Predefined("ACIE", "AC Interrupt Enable", 3),
+	new Predefined("ACI", "AC Interrupt", 4),
+	new Predefined("ACO", "AC Output", 5),
+	new Predefined("ACBG", "", 6),
+	new Predefined("ACD", "", 7),
+
+	new Predefined("DIDR1"),
+	new Predefined("AIN0D", "", 0),
+	new Predefined("AIN1D", "", 1),
+
+
+	// PWM (Puls Width Modulation)
+	new Predefined("OCR0A"),
 
 
 
@@ -300,15 +346,41 @@ const predefinedArray = [
 let predefinedMapping = {}; //TODO: Move all mappings to Descriptor.js
 for (let predefined of predefinedArray) predefinedMapping[predefined.name.toUpperCase()] = predefined;
 
-
-let predefinedFunctionMapping = {
-	"LOW": x => {
-		return typeof(x) == "number" ? x & 0b11111111 : null;
-	},
-	"HIGH": x => {
-		return typeof(x) == "number" ? x & 0b1111111100000000 : null;
-	}
-};
+let modifiers = [
+	new OperatorModifier( // LOW
+		/^low\((.+)\)$/i,
+		(arr) => arr[0].value & 0b11111111 ?? null
+	),
+	new OperatorModifier( // HIGH
+		/^high\(.+\)$/i,
+		(arr) => arr[0].value & 0b11111111_00000000 ?? null
+	),
+	new OperatorModifier( // "x | y"
+		(value) => {
+			let x = value.split(/\s*\|\s*/);
+			if (x.length == 1)
+				return null;
+			return x;
+		},
+		(arr) => {
+			let x = 0;
+			for (let value of arr) {
+				if (typeof value.value != "number")
+					return null;
+				x |= value.value;
+			}
+			return x;
+		}
+	),
+	new OperatorModifier( // x << y
+		/^(.+?)\s*<<(.+)$/,
+		(arr) => {
+			if (typeof arr[0].value != "number" || typeof arr[1].value != "number")
+					return null;
+			return arr[0].value << arr[1].value;
+		}
+	),
+];
 
 
 /*
@@ -409,7 +481,7 @@ const instructionData = {
 	],
 	"andi": [
 		(op) => {
-			return `Provede logickou operaci AND s registrem ${op[0]} a hodnoutou '${op[1]}' a výsledek uloží do registru ${op[0]}`;
+			return `Provede logickou operaci AND s registrem ${op[0]} a hodnotou '${op[1]}' a výsledek uloží do registru ${op[0]}`;
 		},
 		(op) => {
 			return `Hodnota registru ${op[0]} a hodnota '${op[1]}' spolu provedou AND a výsledek bude uložen do registru ${op[0]}`;
@@ -425,7 +497,7 @@ const instructionData = {
 	],
 	"ori": [
 		(op) => {
-			return `Provede logickou operaci OR s registrem ${op[0]} a hodnoutou '${op[1]}' a výsledek uloží do registru ${op[0]}`;
+			return `Provede logickou operaci OR s registrem ${op[0]} a hodnotou '${op[1]}' a výsledek uloží do registru ${op[0]}`;
 		},
 		(op) => {
 			return `Hodnota registru ${op[0]} a hodnota '${op[1]}' spolu provedou OR a výsledek bude uložen do registru ${op[0]}`;
@@ -764,15 +836,15 @@ const instructionData = {
 	],
 	"lds": [
 		(op) => {
-			return `Načtení/zápis hodnoty z paměti na adrese '${op[1]}' do registru ${op[0]}`;
+			return `Načtení/zápis hodnoty ${(op[1] instanceof Operator_Number ? `z paměti na adrese ${op[1]}` : `z registru ${op[1]}`)} do registru ${op[0]}`;
 		},
 		(op) => {
-			return `Z paměti na adrese '${op[1]}' se zapíše hodnota do registru ${op[0]}`;
+			return `${(op[1] instanceof Operator_Number ? `Z paměti na adrese ${op[1]}` : `Z registru ${op[1]}`)} se zapíše hodnota do registru ${op[0]}`;
 		}
 	],
 	"sts": [
 		(op) => {
-			return `Načtení/zápis hotnoty registru '${op[1]}' do paměti na adrese ${op[0]}`;
+			return `Načtení/zápis hodnoty registru '${op[1]}' do paměti na adrese ${op[0]}`;
 		},
 		(op) => {
 			return `Z registru '${op[1]}' se zapíše hodnota do paměti na adrese ${op[0]}`;
@@ -914,16 +986,20 @@ const intelligentCommenters = [
 			prev = getPreviousSureLinedata(parsedCode, lineIndex);
 			if (prev.instruction == "ldi" && prev.operators[1] instanceof Operator_Number) {
 				value = prev.operators[1].value;
-				originalValue = prev.operators[1].originalValue;	
+			} else if (prev.operators[1] instanceof Operator_Predefined || prev.operators[1] instanceof Operator_Modified) {
+				value = prev.operators[1].value;
+				if (value === null)
+					return false;
 			}
+			originalValue = prev.operators[1].originalValue;	
 		} else if (lineData.operators[1] instanceof Operator_Number) {
 			value = lineData.operators[1].value;
 			originalValue = prev.operators[1].originalValue;	
-		} else if (lineData.operators[1] instanceof Operator_Predefined) {
-			value = lineData.operators[1].getPredefined()?.value;
+		} else if (lineData.operators[1] instanceof Operator_Predefined || lineData.operators[1] instanceof Operator_Modified) {
+			value = lineData.operators[1].value;
 			if (value === null)
 				return false;
-			originalValue = prev.operators[1].originalValue;	
+			originalValue = prev.operators[1].originalValue;
 		} else {
 			return false;
 		}
@@ -1047,7 +1123,7 @@ POZOR! Nelze použít arrow funkce:
 const registerCommenters = [
 	new RegisterCommenter_SingleBitOnly(
 		/*
-		ADCSRA - ADC Control and Status register A
+		ADCSRA - AD Control and Status register A
 		Bity:
 			0 - ADPS0; ADC Prescaler Select 0
 			1 - ADPS1; ADC Prescaler Select 1
@@ -1062,11 +1138,12 @@ const registerCommenters = [
 		function(bit, value, register) {
 			switch (bit) {
 				case 0:
-					break;
 				case 1:
-					break;
 				case 2:
-					break;
+					return [
+						"přizpůsobí předdělič A/D převodníku",
+						"předdělič A/D převodníku se příslušně upraví"
+					][(this.settings.singleBit & 32) >> 5];
 				case 3:
 					return (value ? [
 						"povolí se přerušení z A/D převodníku",
@@ -1113,7 +1190,7 @@ const registerCommenters = [
 		["ADCSRA"],
 		{
 			//fullValue: getRandom(0,1),
-			singleBit: getRandom(0,31)
+			singleBit: getRandom(0,63)
 		}
 	),
 
@@ -1163,52 +1240,56 @@ const registerCommenters = [
 		}
 	),
 
-	new RegisterCommenter(
+	new RegisterCommenter_SingleBitOnly(
 		/*
-		ADCR
+		ACSR - AC Control Status Register
 		Bity:
-			0 - ACIS0; AC interrupt něco
-			1 - ACIS1; AC interrupt něco
+			0 - ACIS0; AC Interrupt Select 0
+			1 - ACIS1; AC Interrupt Select 1
 			2 - ACIC
-			3 - ACIE; AC interrutp enable
-			4 - ACI; AC interrupt (příznak)
-			5 - ACO; AC output
+			3 - ACIE; AC Interrupt Enable
+			4 - ACI; AC Interrupt
+			5 - ACO; AC Output
 			6 - ACBG
 			7 - ACD
 		*/
-		function(value, register) {
-
-			if (value & 0b0000_1000) { // Bit 3
-				return [
-					"přerušení z komparátoru jsou povolena",
-					"povolí se přerušení z komparátoru"
-				][this.settings.fullValue];
-			} else {
-				return [
-					"přerušení z komparátoru jsou zakázána",
-					"zakáží se přerušení z komparátoru"
-				][this.settings.fullValue];
-			}
-
-			//return null;
-		},
 		function(bit, value, register) {
 			switch (bit) {
+				case 0:
+				case 1:
+					return [
+						"přizpůsobí se výběr přerušení AC",
+						"výběr přerušení u AC se příslušně upraví"
+					][this.settings.singleBit & 1];
+				case 2:
+					break;
 				case 3:
 					return (value ? [
-							"přerušení z komparátoru jsou povolena",
-							"povolí se přerušení z komparátoru"
-						] : [
-							"přerušení z komparátoru jsou zakázána",
-							"zakáží se přerušení z komparátoru"
-						])[this.settings.singleBit];
+						"přerušení z komparátoru jsou povolena",
+						"povolí se přerušení z komparátoru"
+					] : [
+						"přerušení z komparátoru jsou zakázána",
+						"zakáží se přerušení z komparátoru"
+					])[(this.settings.singleBit & 2) >> 1];
+				case 4:
+					return (value ? [
+						"nastaví se příznak přerušení",
+						"příznak přerušení se nastaví"
+					] : [
+						"zruší se příznak přerušení",
+						"příznak přerušení se vynuluje"
+					])[(this.settings.singleBit & 4) >> 2];
+				case 6:
+					break;
+				case 7:
+					break;
 			}
 			return null;
 		},
 		["ACSR"],
 		{
 			fullValue: getRandom(0,1),
-			singleBit: getRandom(0,1)
+			singleBit: getRandom(0,7)
 		}
 	),
 
@@ -1227,13 +1308,10 @@ const registerCommenters = [
 		function(bit, value, register) {
 			switch (bit) {
 				case 0:
-					return "";
 				case 1:
-					return "";
 				case 2:
-					return "";
 				case 3:
-					return "";
+					break;
 				case 5:
 					return (value ? [
 						`výsledek převodu bude v registrech ADCH a ADCL zarovnán doleva`,
@@ -1243,9 +1321,11 @@ const registerCommenters = [
 						`v registrech se výsledek zarovná vpravo`
 					])[this.settings.singleBit];
 				case 6:
-					return "";
 				case 7:
-					return "";
+					return [
+						"přizpůsobí zdroj referenčního napětí ADC",
+						"zdroj referenčního napětí ADC se příslušně upraví"
+					][this.settings.singleBit];
 			}
 			return null;
 		},
@@ -1258,14 +1338,12 @@ const registerCommenters = [
 
 	new RegisterCommenter(
 		function(value, register) {
-			// Bity ???, 1 (AIN1), 0 (AIN0)
 			/*
+			DIDR1 - Digital Input Disable Register 1
 			Bity:
-				0 - AIN0
-				1 - AIN1
-				???
+				0 - AIN0D
+				1 - AIN1D
 			*/
-
 			switch (value & 0b11) {
 				case 0b00:
 					return [
@@ -1288,8 +1366,6 @@ const registerCommenters = [
 						"digitální vstup se zakáže"
 					][this.settings.fullValue];
 			}
-
-			//return null;
 		},
 		function(bit, value, register) {
 			switch (bit) {
@@ -1297,8 +1373,10 @@ const registerCommenters = [
 				case 1:
 				case 2:
 				case 3:
-					//Pravděpodobně nikdy nebude chtít nastavovat přes "single bit" operace, jelikož tyhle 4 bity závisí na sobě...
-					return null;
+					return [
+						"přizpůsobí zapnutí/vypnutí digitálního vstupu",
+						"zapnutí/vypnutí digitálního vstupu se příslušně upraví"
+					][this.settings.singleBit];
 			}
 			return null;
 		},
@@ -1358,24 +1436,83 @@ const registerCommenters = [
 		}
 	),
 
-	// new RegisterCommenter(
-	// 	function(value, register) {
-	// 		return [
-	// 			`na výstpuní port ${register} se pošle hodnota `
-	// 		]
-	// 	},
-	// 	function(bit, value, register) {
-	// 		switch (bit) {
-	
-	// 		}
-	// 		return null;
-	// 	},
-	// 	["PORTA", "PORTB", "PORTC", "PORTD"],
-	// 	{
-	// 		fullValue: getRandom(0,1),
-	// 		singleBit: getRandom(0,1)
-	// 	}
-	// ),
+	new RegisterCommenter_SingleBitOnly(
+		/*
+		TCCR0A - Timer/Counter 0 Control Register A
+		Bity:
+			0 - WGM00; Wave Generation Mode 0
+			1 - WGM01; Wave Generation Mode 0
+			4 - COM0B0; Compare Match Output B Mode 0
+			5 - COM0B1; Compare Match Output B Mode 1
+			6 - COM0A0; Compare Match Output A Mode 0
+			7 - COM0A1; Compare Match Output A Mode 1
+		*/
+		function(bit, value, register) {
+			switch (bit) {
+				case 0:
+				case 1:
+					return [
+						"změní se operační mód PWM",
+						"mód PWM se příslušně upraví"
+					][this.settings.singleBit & 1];
+				case 4:
+				case 5:
+					// return [
+					// 	"",
+					// 	""
+					// ][this.settings.singleBit & 1];
+					break;
+				case 6:
+				case 7:
+					// return [
+					// 	"",
+					// 	""
+					// ][this.settings.singleBit & 1];
+					break;
+			}
+			return null;
+		},
+		["TCCR0A"],
+		{
+			fullValue: getRandom(0,1),
+			singleBit: getRandom(0,1)
+		}
+	),
+
+	new RegisterCommenter_SingleBitOnly(
+		/*
+		TCCR0B - Timer/Counter 0 Control Register B
+		Bity:
+			0 - CS00; Clock Select 0
+			1 - CS01; Clock Select 1
+			2 - CS02; Clock Select 2
+			3 - WGM02; Wave Generation Mode 2
+			6 - FOC0B
+			7 - FOC0A
+		*/
+		function(bit, value, register) {
+			switch (bit) {
+				case 0:
+				case 1:
+				case 2:
+					return [
+						"přizpůsobí se rychlost/zdroj časovače/čítače",
+						"rychlost (nebo zdroj) časovače/čítače se příslušně upraví"
+					][this.settings.singleBit & 1];
+				case 3:
+					return "";
+				case 6:
+				case 7:
+					return "";
+			}
+			return null;
+		},
+		["TCCR0B"],
+		{
+			fullValue: getRandom(0,1),
+			singleBit: getRandom(0,1)
+		}
+	),
 ]
 
 //TODO: Move all mappings to Descriptor.js

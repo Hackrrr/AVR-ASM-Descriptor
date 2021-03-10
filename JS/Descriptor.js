@@ -166,36 +166,20 @@ class RegisterCommenter { //TODO: README.md ohledně tohohle
 		this.settings = settings;
 	}
 }
-class RegisterCommenter_SingleBitOnly {
-	registers = [];
-	settings = 0;
-
-	generateFullValueComment(...args) {
-		return this.#fullValueCommneter == null ? null : (this.#fullValueCommneter(...args) ?? null)
-	}
-	generateSingleBitComment(...args) {
-		return this.#singleBitCommneter == null ? null : (this.#singleBitCommneter(...args) ?? null)
-	}
-
-	#fullValueCommneter = null;
-	#singleBitCommneter = null;
-
+class RegisterCommenter_SingleBitOnly extends RegisterCommenter {
 	constructor(singleBitCommneter, registers, settings = 0) {
 		let fullValueCommenter = function(value, register) {
 			let bits = getBitList(value);
 			let comments = [];
 			for (let bit of bits.on)
 				comments.push(this.generateSingleBitComment(bit, 1, register));
-			comments = comments.filter((value) => value !== null && value !== "");
+			comments = [...new Set(comments.filter((value) => value !== null && value !== ""))];
 			if (comments.length == 0)
 				return null;
 			else
 				return humanJoin(comments);
 		}
-		this.#fullValueCommneter = fullValueCommenter?.bind(this);
-		this.#singleBitCommneter = singleBitCommneter?.bind(this);
-		this.registers = registers;
-		this.settings = settings;
+		super(fullValueCommenter, singleBitCommneter, registers, settings);
 	}
 }
 class Predefined {
@@ -205,13 +189,51 @@ class Predefined {
 		this.value = value;
 	}
 }
+class OperatorModifier {
+	/*
+	Vrátí array stringů, které se násldně parsují jako operátory (mimo tuhle funkci); Pokud nelze, vrátí null
+	*/
+	parse = (value) => null;
+	/*
+	Vrátí se hodnota ve správném typu (tedy ne vždy string) - Pasuje se array z funkce 'parse', ale tyto hodnoty jsou parsované; Pokud nelze, vrátí null
+	*/
+	resolve = (arr) => null;
+
+	constructor(parser, resolver) {
+		/*
+		parser = Regex/Funkce(value)
+			Regex:
+				Pokud projde regexem, honota je validní
+			Funkce:
+				Pokud funkce(value) vrátí true, hodnota je validní
+		*/
+		if (parser instanceof RegExp) {
+			this.parse = (value) => {
+				let x = value.match(parser);
+				if (x === null)
+					return null;
+				x = Array.from(x);
+				x.shift();
+				return x;
+			};
+		} else {
+			this.parse = parser;
+		}
+		this.resolve = resolver;
+	}
+}
 
 
 
 class Operator {
 	static validator = value => false;
 	originalValue = "";
-	comparableValue;
+	get comparableValue() {
+		return null;
+	}
+	get value() {
+		return this.comparableValue;
+	}
 	constructor(value) {
 		this.originalValue = value;
 	}
@@ -277,8 +299,9 @@ const parseOps = (ops) => {
 }
 const parseOperator = (value) => {
 	for (let operatorClass of operatorCheckOrder) {
-		if (operatorClass.validator(value))
-			return new operatorClass(value);
+		let validatorOutput = operatorClass.validator(value);
+		if (validatorOutput !== false)
+			return new operatorClass(validatorOutput === true ? value : validatorOutput);
 	}
 	console.warn("Unknown operator detected! (value '" + value + "')");
 	return new Operator_Unknown(value);
